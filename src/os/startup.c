@@ -36,6 +36,7 @@ extern int main(void);
 void DefaultIrq(void);
 static void SvcIrq(void);
 static void reset(void);
+NAKED void YOS_Scheduler(void);
 extern DWORD _estack;
 
 SECTION(".vectors")
@@ -55,7 +56,7 @@ void *vectors[] =
 		SvcIrq,
 		0,
 		0,
-		PendSvIrq,
+		YOS_Scheduler,	// scheduler on PendSv
 		SysTicksIrq,
 		DefaultIrq, // start of device IRQ
 		DefaultIrq,

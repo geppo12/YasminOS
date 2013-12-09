@@ -35,7 +35,7 @@
 #include <cortex_m0.h>
 
 // this define all memory for a task (context+stack)
-#define TASK_SIZE	256;
+#define TASK_SIZE	256
 
 typedef void (*YOS_Routine)(void);
 enum {

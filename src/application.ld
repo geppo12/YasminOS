@@ -5,7 +5,8 @@ MEMORY
   DRAM  (rw) : ORIGIN = 0x10000000, LENGTH = 0x0400
 } 
 
-STACK_SIZE = 0x100;
+TOP_RAM		= 0x10000400;
+STACK_SIZE  = 0x100;
 
 SECTIONS
 {
@@ -14,8 +15,8 @@ SECTIONS
   	_text = .;
 	KEEP(*(.vectors))
 	KEEP(*(.text.startup))
-	. = 0x2FC;
-	KEEP(*(.text.crp))  
+	. = 0x2FC; 
+	KEEP(*(.text.crp))   
     *(.text)        	 /* Startup code */
     *(.rodata)
     *(.glue_7)
@@ -39,8 +40,8 @@ SECTIONS
     *(.bss)
     _ebss = .;
     . = ALIGN(4);
-    . = . + STACK_SIZE;
-    _estack = .;
   } > DRAM
   
-}
+  PROVIDE(_stack = TOP_RAM - STACK_SIZE);
+  PROVIDE(_estack = TOP_RAM);  
+ }

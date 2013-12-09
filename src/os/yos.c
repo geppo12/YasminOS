@@ -49,9 +49,9 @@ ALWAYS_INLINE static void save_context(void) {
 	// cortex-M0+ can save only r {r0-r7}
 	// so we need double stm
 	asm volatile(
-			"mrs   r0,msp		\t\n"
+			"mrs   r0,psp		\t\n"
 			"sub   r0,#32		\t\n"
-			"msr   msp,r0		\t\n"
+			"msr   psp,r0		\t\n"
 			"stm   r0!,{r4-R7}	\t\n"
 			"mov   r4,r8		\t\n"
 			"mov   r5,r9		\t\n"
@@ -73,7 +73,7 @@ ALWAYS_INLINE static void restore_context(register DWORD *psp) {
 			"mov   r9,r5		\t\n"
 			"mov   r10,r6		\t\n"
 			"mov   r11,r7		\t\n"
-			"mrs   r0,msp		\t\n"
+			"mov   r0,%0		\t\n"
 			"ldm   r0!,{r4-r7}	\t\n"
 			"add   r0,#0x10		\t\n"
 			"msr   psp,r0		\t\n"
@@ -138,9 +138,8 @@ void YOS_SystemTick(void) {
 	sSystemTicks++;
 }
 
-NAKED void YOS_Scheduler(void) {
-	register DWORD *psp asm("r0");
-	asm volatile ("push {lr}");
+void YOS_Scheduler(void) {
+	DWORD *psp;
 	// here we use only r0 as local variable;
 	// register r4-r11 should be untouched
 	sPendingProcessing = true;
@@ -156,26 +155,30 @@ NAKED void YOS_Scheduler(void) {
 		*CTX_SCB_SCR   |= CTX_SCBSCR_SleepOnExit;
 	}
 	sPendingProcessing = false;
-	asm volatile ("pop {pc}");
 }
 
 void YOS_AddTask(YOS_Routine *code) {
+	register int i;
 	// TODO YOS_AddTask
 	register DWORD *newTask;
 
 	newTask = (DWORD *)(sTaskMemory);
 	sTaskMemory -= TASK_SIZE;
+	// zero task memory
+	for (i = 0; i < TASK_SIZE; i++)
+		sTaskMemory[i] = 0;
 	// add return stak frame (cortex unstaking)
 	newTask 	-= 8;
 	// set new PC
-	newTask[6] = (DWORD)code;
+	newTask[14] = (DWORD)code;
 	gTaskList[sTaskNum++] = newTask;
 }
 
 
 void YOS_InitOs(void) {
-	sTaskMemory = (BYTE *)_estack;
-	// Setup System Ticks
+	extern DWORD _stack;
+	sTaskMemory = (BYTE *)&_stack;
+	// Setup System Ticks but don't start IT
 	CTX_SYST->RVR = 0x00030D3F;
 	CTX_SYST->CVR = 0;
 	CTX_SYST->CSR = 7;
@@ -184,17 +187,16 @@ void YOS_InitOs(void) {
 	CTX_SCB->SHPR3 = (3L<<22);
 }
 
+NAKED
 void YOS_Start(void) {
-	// reset msp
+	// reset set psp for start
 	asm volatile (
 		"ldr r0,=_estack	\t\n"
-		"ldr r0,[r0] 		\t\n"
 		"msr msp,r0         \t\n"
-		"@ switch to psp    \t\n"
+		"msr psp,r0			\t\n"
 		"mov r0,#2			\t\n"
-		"msr control,r0     \t\n"
-		"mov r0,#1          \t\n"
-		"msr primask,r0     \t\n"
-		"svc #0             \t\n"
+		"msr control,r0		\t\n"
 	);
+	// do reschedule
+	reschedule();
 }
