@@ -37,6 +37,7 @@ void DefaultIrq(void);
 static void SvcIrq(void);
 static void reset(void);
 NAKED void YOS_Scheduler(void);
+void YOS_SystemTickIrq(void);
 extern DWORD _estack;
 
 SECTION(".trace")
@@ -60,7 +61,7 @@ void *vectors[] =
 		0,
 		0,
 		YOS_Scheduler,	// scheduler on PendSv
-		SysTicksIrq,
+		YOS_SystemTickIrq,
 		DefaultIrq, // start of device IRQ
 		DefaultIrq,
 		DefaultIrq,

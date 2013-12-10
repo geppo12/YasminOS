@@ -154,7 +154,7 @@ void YOS_SvcDispatch(DWORD *psp) {
 	}
 }
 
-void YOS_SystemTick(void) {
+void YOS_SystemTickIrq(void) {
 	if (sPendingProcessing == false)
 		CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet;
 	sSystemTicks++;
