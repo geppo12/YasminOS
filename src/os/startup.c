@@ -39,6 +39,9 @@ static void reset(void);
 NAKED void YOS_Scheduler(void);
 extern DWORD _estack;
 
+SECTION(".trace")
+BYTE strace[32];
+
 SECTION(".vectors")
 void *vectors[] =
 {

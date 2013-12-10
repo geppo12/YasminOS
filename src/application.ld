@@ -23,7 +23,12 @@ SECTIONS
     *(.glue_7t)
     . = ALIGN(4);
   } > CODE
-  _etext = .;  
+  _etext = .;
+  
+  .trace (NOLOAD) :
+  {
+  	KEEP(*(.trace));
+  }  
  
   /* .data section which is used for initialized data */
   .data : AT (ADDR(.text) + SIZEOF(.text))  

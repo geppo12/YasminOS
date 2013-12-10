@@ -44,14 +44,18 @@ static DWORD sSystemTicks;
 static WORD	 sTaskNum;							// number of task
 static WORD	 sTaskIndex;						// index of running task
 static WORD  sTaskNext;							// index of next task
+// todo rimpiazzare con puntatore a TCB
+static int sCurrentTask;						// running task
 
-ALWAYS_INLINE static void save_context(void) {
+ALWAYS_INLINE static DWORD save_context(void) {
 	// cortex-M0+ can save only r {r0-r7}
 	// so we need double stm
+	register DWORD *psp asm("r0");
 	asm volatile(
 			"mrs   r0,psp		\t\n"
-			"sub   r0,#32		\t\n"
+			"sub   r0,#0x20		\t\n"
 			"msr   psp,r0		\t\n"
+			"mov   r1,r0        \t\n"
 			"stm   r0!,{r4-R7}	\t\n"
 			"mov   r4,r8		\t\n"
 			"mov   r5,r9		\t\n"
@@ -60,9 +64,10 @@ ALWAYS_INLINE static void save_context(void) {
 			"stm   r0!,{r4-r7}	\t\n"
 			:::"r0"
 	);
+	return psp;
 }
 
-ALWAYS_INLINE static void restore_context(register DWORD *psp) {
+ALWAYS_INLINE static void restore_context(register DWORD psp) {
 	// cortex-M0+ can restore only r {r0-r7}
 	// so we need double ldm
 	asm volatile(
@@ -81,11 +86,9 @@ ALWAYS_INLINE static void restore_context(register DWORD *psp) {
 	);
 }
 
-DWORD *getNextTask(void) {
-	DWORD *retVal, task;
+int getNextTask(void) {
+	DWORD task;
 	int i = 0;
-
-	retVal = (DWORD*)NULL;
 
 	for (i = 0; i < sTaskNum; i++) {
 		// TODO possibile risparmiare il tempo di un'assegnamento ?
@@ -95,11 +98,11 @@ DWORD *getNextTask(void) {
 			sTaskNext = sTaskNum;
 		task = gTaskList[sTaskIndex];
 		if ((task & 1) == 0) {
-			retVal = (DWORD*)(task & ~3);
-			break;
+			return sTaskIndex;
 		}
 	}
-	return retVal;
+
+	return -1;
 }
 
 static void reschedule(void) {
@@ -126,6 +129,25 @@ void YOS_SvcDispatch(DWORD *psp) {
 			reschedule();
 			break;
 
+		// must be called only form YOS_Start.
+		// is handler part of YOS_Start
+		case DO_START:
+			// Start sys ticks
+			CTX_SYST->CSR |= 1;
+
+			// reset MSP stack
+			// but leave return address
+			asm volatile (
+				"ldr r0,=_estack	\t\n"
+				"sub r0,#4			\t\n"
+				"msr msp,r0         \t\n"
+			);
+			// restore context first task
+			restore_context(gTaskList[0]);
+			// start first task
+			asm volatile ("pop {pc}");
+			break;
+
 		default:
 			ASSERT(false);
 			break;
@@ -139,15 +161,17 @@ void YOS_SystemTick(void) {
 }
 
 void YOS_Scheduler(void) {
-	DWORD *psp;
+	int taskId;
 	// here we use only r0 as local variable;
 	// register r4-r11 should be untouched
 	sPendingProcessing = true;
-	psp = getNextTask();
-	if (psp != NULL) {
+	taskId = getNextTask();
+	if (taskId >= 0) {
 		// new task running. do a context switch
-		save_context();
-		restore_context(psp);
+		gTaskList[sCurrentTask] = save_context();
+		restore_context(gTaskList[taskId]);
+		sCurrentTask = taskId;
+
 		// remove sleep on exit bit so system continue run.
 		*CTX_SCB_SCR   &= ~CTX_SCBSCR_SleepOnExit;
 	} else {
@@ -168,12 +192,13 @@ void YOS_AddTask(YOS_Routine *code) {
 	for (i = 0; i < TASK_SIZE; i++)
 		sTaskMemory[i] = 0;
 	// add return stak frame (cortex unstaking)
-	newTask 	-= 8;
+	newTask 	-= 16;
 	// set new PC
 	newTask[14] = (DWORD)code;
-	gTaskList[sTaskNum++] = newTask;
+	// force T bit in xPSR (without it we have and hard fault)
+	newTask[15] = 0x1000000;
+	gTaskList[sTaskNum++] = (DWORD)newTask;
 }
-
 
 void YOS_InitOs(void) {
 	extern DWORD _stack;
@@ -181,7 +206,7 @@ void YOS_InitOs(void) {
 	// Setup System Ticks but don't start IT
 	CTX_SYST->RVR = 0x00030D3F;
 	CTX_SYST->CVR = 0;
-	CTX_SYST->CSR = 7;
+	CTX_SYST->CSR = 6;
 
 	// set PendSv ad lowest priority irq
 	CTX_SCB->SHPR3 = (3L<<22);
@@ -189,14 +214,15 @@ void YOS_InitOs(void) {
 
 NAKED
 void YOS_Start(void) {
-	// reset set psp for start
+	// Reset stack. Set processor stack
 	asm volatile (
 		"ldr r0,=_estack	\t\n"
 		"msr msp,r0         \t\n"
-		"msr psp,r0			\t\n"
+		"@ space for master stack pointer \t\n"
+		"sub r0,#0x20 		\t\n"
+		"msr psp,r0         \t\n"
 		"mov r0,#2			\t\n"
 		"msr control,r0		\t\n"
 	);
-	// do reschedule
-	reschedule();
+	SYS_CALL(START);
 }

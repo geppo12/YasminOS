@@ -41,10 +41,11 @@ typedef void (*YOS_Routine)(void);
 enum {
 	DO_WAIT,
 	DO_SIGNAL,
-	DO_RESCHEDULE
+	DO_RESCHEDULE,
+	DO_START,
 };
 
-#define SYS_CALL(a)	do { asm volatile ("svc %0"::"I"(DO_##a));
+#define SYS_CALL(a)	do { asm volatile ("svc %0"::"I"(DO_##a)); } while(0)
 
 void YOS_InitOs(void);
 void YOS_Start(void);
