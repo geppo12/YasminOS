@@ -33,11 +33,15 @@
 #include <yos.h>
 
 void task1(void) {
-	while(1);
+	while(1) {
+		asm volatile("nop");
+	}
 }
 
 void task2(void) {
-	while(1);
+	while(1) {
+		asm volatile("nop");
+	}
 }
 
 NAKED

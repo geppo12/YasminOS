@@ -38,6 +38,8 @@ static void SvcIrq(void);
 static void reset(void);
 NAKED void YOS_Scheduler(void);
 void YOS_SystemTickIrq(void);
+NAKED void YOS_StartOSIrq(void);
+void YOS_SvcDispatch(int svcid);
 extern DWORD _estack;
 
 SECTION(".trace")
@@ -46,88 +48,99 @@ BYTE strace[32];
 SECTION(".vectors")
 void *vectors[] =
 {
-		(void *)&_estack,
-		reset,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		0,			// reserved
-		0,
-		0,
-		0,
-		0,
-		0,
-		SvcIrq,
-		0,
-		0,
-		YOS_Scheduler,	// scheduler on PendSv
-		YOS_SystemTickIrq,
-		DefaultIrq, // start of device IRQ
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
-		DefaultIrq,
+	(void *)&_estack,
+	reset,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	0,			// reserved
+	0,
+	0,
+	0,
+	0,
+	0,
+	SvcIrq,
+	0,
+	0,
+	YOS_Scheduler,	// scheduler on PendSv
+	YOS_SystemTickIrq,
+	DefaultIrq, // start of device IRQ
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
+	DefaultIrq,
 };
 
 SECTION(".text.startup")
 NAKED
 void DefaultIrq(void)
 {
-	asm volatile("mov pc,lr");
+	asm volatile(
+		"mov pc,lr	\n"
+		"nop		\n"
+	);
 }
 
 SECTION("text.startup")
 NAKED
 static void SvcIrq(void) {
 	asm volatile (
-			"movs	r0,#4				\t\n"
-			"mov 	r1,lr				\t\n"
-			"tst	r0,r1				\t\n"
-			"beq	1f					\t\n"
-			"mrs	r0,psp				\t\n"
-			"ldr	r1,=YOS_SvcDispatch	\t\n"
-			"bx		r1					\t\n"
-			"1:                         \t\n"
-			"mrs	r0,msp				\t\n"
-			"ldr	r1,=YOS_SvcDispatch	\t\n"
-			"bx		r1					\t\n"
+		"movs	r0,#4				\t\n"
+		"mov 	r1,lr				\t\n"
+		"tst	r0,r1				\t\n"
+		"beq	1f					\t\n"
+		"mrs	r0,psp				\t\n"
+		"b		2f					\t\n"
+		"1:                         \t\n"
+		"mrs	r0,msp				\t\n"
+		"2:							\t\n"
+		"ldr	r1,[r0,#24]			\t\n"
+		"sub	r1,#2				\t\n"
+		"ldrb	r0,[r1]				\t\n"
+		"cmp	r0,#0				\t\n"
+		"bne	1f					\t\n"
+		"ldr	r0,=YOS_StartOsIrq	\t\n"
+		"bx		r0					\t\n"
+		"1:							\t\n"
+		"ldr	r1,=YOS_SvcDispatch	\t\n"
+		"bx		r1					\t\n"
 	);
 }
 

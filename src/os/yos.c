@@ -34,7 +34,6 @@
 #include <cortex_m0.h>
 #include <yos.h>
 
-static bool  sPendingProcessing = false;
 extern DWORD gTaskList[];
 extern const WORD gMaxTask;
 extern DWORD _estack;
@@ -47,42 +46,44 @@ static WORD  sTaskNext;							// index of next task
 // todo rimpiazzare con puntatore a TCB
 static int sCurrentTask;						// running task
 
-ALWAYS_INLINE static DWORD save_context(void) {
-	// cortex-M0+ can save only r {r0-r7}
-	// so we need double stm
-	register DWORD *psp asm("r0");
+// optimizer remove this function because C don't call it
+// is called in inline assembler only. So we disable optimizer
+// just for this function
+NAKED
+SECTION(".text.startup")
+OPTIMIZE(O0)
+static DWORD save_context(void) {
 	asm volatile(
 			"mrs   r0,psp		\t\n"
 			"sub   r0,#0x20		\t\n"
-			"msr   psp,r0		\t\n"
-			"mov   r1,r0        \t\n"
-			"stm   r0!,{r4-R7}	\t\n"
-			"mov   r4,r8		\t\n"
+			"msr   psp,r0		\t\n" // new psp with space for register
+			"stm   r0!,{r4-R7}	\t\n" // save register r4-r7
+			"mov   r4,r8		\t\n" // copy r8-r11 -> r4-r7 (in cortex-M0 stm work only for lo reg)
 			"mov   r5,r9		\t\n"
 			"mov   r6,r10		\t\n"
 			"mov   r7,r11		\t\n"
-			"stm   r0!,{r4-r7}	\t\n"
-			:::"r0"
+			"stm   r0!,{r4-r7}	\t\n" // save r8-r11 values
+			"mrs   r0,psp		\t\n" // return correct value of psp
+			"bx    lr           \t\n" // return
 	);
-	return psp;
 }
 
-ALWAYS_INLINE static void restore_context(register DWORD psp) {
-	// cortex-M0+ can restore only r {r0-r7}
-	// so we need double ldm
+NAKED
+SECTION(".text.startup")
+static void restore_context(register DWORD psp) {
 	asm volatile(
-			"mov   r0,%0		\t\n"
+			"mov   r1,r0        \t\n"
 			"add   r0,#0x10		\t\n"
 			"ldm   r0!,{r4-r7}	\t\n"
 			"mov   r8,r4		\t\n"
 			"mov   r9,r5		\t\n"
 			"mov   r10,r6		\t\n"
 			"mov   r11,r7		\t\n"
-			"mov   r0,%0		\t\n"
+			"mov   r0,r1		\t\n"
 			"ldm   r0!,{r4-r7}	\t\n"
 			"add   r0,#0x10		\t\n"
 			"msr   psp,r0		\t\n"
-			:: "r"(psp)
+			"bx    lr           \t\n"
 	);
 }
 
@@ -94,8 +95,8 @@ int getNextTask(void) {
 		// TODO possibile risparmiare il tempo di un'assegnamento ?
 		sTaskIndex = sTaskNext;
 		sTaskNext++;
-		if (sTaskNext == 0)
-			sTaskNext = sTaskNum;
+		if (sTaskNext == sTaskNum)
+			sTaskNext = 0;
 		task = gTaskList[sTaskIndex];
 		if ((task & 1) == 0) {
 			return sTaskIndex;
@@ -105,13 +106,13 @@ int getNextTask(void) {
 	return -1;
 }
 
+SECTION(".text.startup")
 static void reschedule(void) {
 	*CTX_SCB_ICSR |= CTX_SCBICSR_PendSVSet;
 }
 
-void YOS_SvcDispatch(DWORD *psp) {
-	// TODO YOS_SvcDispatch(DWORD *psp) {
-	int svcid = ((char *)psp[6])[-2];
+// no startup, can grow
+void YOS_SvcDispatch(int svcid) {
 	int taskIdx;
 	switch(svcid) {
 		case DO_WAIT:
@@ -129,56 +130,72 @@ void YOS_SvcDispatch(DWORD *psp) {
 			reschedule();
 			break;
 
-		// must be called only form YOS_Start.
-		// is handler part of YOS_Start
-		case DO_START:
-			// Start sys ticks
-			CTX_SYST->CSR |= 1;
-
-			// reset MSP stack
-			// but leave return address
-			asm volatile (
-				"ldr r0,=_estack	\t\n"
-				"sub r0,#4			\t\n"
-				"msr msp,r0         \t\n"
-			);
-			// restore context first task
-			restore_context(gTaskList[0]);
-			// start first task
-			asm volatile ("pop {pc}");
-			break;
-
 		default:
 			ASSERT(false);
 			break;
 	}
+	EXIT_IRQ();
 }
 
+// naked: last istruction MUST BE only pop {pc}
+// force optimization: when change optimization level in makefile code don't change
+NAKED
+OPTIMIZE(O1)
+SECTION(".text.startup")
+void YOS_StartOsIrq(void) {
+	asm volatile("push {lr}");
+	// Start sys ticks
+	CTX_SYST->CSR |= 1;
+	// restore context first task
+	restore_context(gTaskList[0]);
+	// start first task
+	asm volatile ("pop {pc}");
+}
+
+SECTION(".text.startup")
 void YOS_SystemTickIrq(void) {
-	if (sPendingProcessing == false)
-		CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet;
 	sSystemTicks++;
+	EXIT_IRQ();
 }
 
+// naked: last istruction MUST BE only pop {pc}
+// force optimization: when change optimization level in makefile code don't change
+NAKED
+OPTIMIZE(O1)
 void YOS_Scheduler(void) {
-	int taskId;
-	// here we use only r0 as local variable;
-	// register r4-r11 should be untouched
-	sPendingProcessing = true;
-	taskId = getNextTask();
+	register int taskId asm("r3");
+	register DWORD psp asm("r2");
+	// taskId = getNextTask();
+	// use inline asm to control register usage
+	asm volatile(
+			"push 	{lr}			\t\n"
+			"bl		getNextTask		\t\n"
+			"mov	%0,r0			\t\n"
+			:"=r"(taskId)::"r0"
+	);
+
 	if (taskId >= 0) {
 		// new task running. do a context switch
-		gTaskList[sCurrentTask] = save_context();
-		restore_context(gTaskList[taskId]);
+		// use inline asm to control register usage
+		//gTaskList[sCurrentTask] = save_context();
+		asm volatile (
+			"bl		save_context	\t\n"
+			"mov    %0,r0           \t\n"
+			:"=r"(psp)::"r0"
+		);
+		// ** until here we MUST NOT touch r4-r11 **
+		gTaskList[sCurrentTask] = psp;
 		sCurrentTask = taskId;
-
 		// remove sleep on exit bit so system continue run.
 		*CTX_SCB_SCR   &= ~CTX_SCBSCR_SleepOnExit;
+		// must be the last operation before return
+		restore_context(gTaskList[taskId]);
+		// ** from here we MUST NOT touch r4-r11 **
 	} else {
 		// no task running go sleep when exit
 		*CTX_SCB_SCR   |= CTX_SCBSCR_SleepOnExit;
 	}
-	sPendingProcessing = false;
+	asm volatile("pop {pc}");
 }
 
 void YOS_AddTask(YOS_Routine *code) {
@@ -218,11 +235,10 @@ void YOS_Start(void) {
 	asm volatile (
 		"ldr r0,=_estack	\t\n"
 		"msr msp,r0         \t\n"
-		"@ space for master stack pointer \t\n"
-		"sub r0,#0x20 		\t\n"
+		"sub r0,#0x20 		\t\n"	//space for master stack pointer
 		"msr psp,r0         \t\n"
 		"mov r0,#2			\t\n"
 		"msr control,r0		\t\n"
+		"svc 0				\t\n"
 	);
-	SYS_CALL(START);
 }

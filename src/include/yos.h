@@ -39,13 +39,22 @@
 
 typedef void (*YOS_Routine)(void);
 enum {
-	DO_WAIT,
+	DO_WAIT = 1,		// value 0 is reserved for start
 	DO_SIGNAL,
 	DO_RESCHEDULE,
-	DO_START,
 };
 
+// call system routine macro
 #define SYS_CALL(a)	do { asm volatile ("svc %0"::"I"(DO_##a)); } while(0)
+
+// exit irq macro. Set pending bit if return goes back in thread mode
+#define EXIT_IRQ()									\
+	do {											\
+		register DWORD reg;							\
+		asm volatile ("mov %0,lr":"=r"(reg));		\
+		if ((reg & 4) != 0)							\
+			CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet; \
+	} while(0)
 
 void YOS_InitOs(void);
 void YOS_Start(void);
