@@ -17,8 +17,8 @@ SECTIONS
 	KEEP(*(.text.startup))
 	. = 0x2FC; 
 	KEEP(*(.text.crp))   
-    *(.text)        	 /* Startup code */
-    *(.rodata)
+    *(.text.*)
+    *(.rodata.*)
     *(.glue_7)
     *(.glue_7t)
     . = ALIGN(4);
@@ -34,18 +34,19 @@ SECTIONS
   .data : AT (ADDR(.text) + SIZEOF(.text))  
   {
   	_data = .;
-    *(.data)
+    *(.data.*)
 	. = ALIGN(4);  
   } > DRAM
-  _edata = .;
+  PROVIDE(_edata = .);
   
   .bss (NOLOAD) :
   {
   	_bss = .;
-    *(.bss)
-    _ebss = .;
+    *(.bss.*)
     . = ALIGN(4);
   } > DRAM
+  PROVIDE(_ebss = .);
+  
   
   PROVIDE(_stack = TOP_RAM - STACK_SIZE);
   PROVIDE(_estack = TOP_RAM);  
