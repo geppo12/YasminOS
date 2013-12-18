@@ -34,7 +34,7 @@
 #include <cortex_m0.h>
 #include <yos.h>
 
-extern DWORD gTaskList[];
+extern YOS_Task_t gTaskList[];
 extern const WORD gMaxTask;
 extern DWORD _estack;
 static BYTE *sTaskMemory;
@@ -43,8 +43,7 @@ static DWORD sSystemTicks;
 static WORD	 sTaskNum;							// number of task
 static WORD	 sTaskIndex;						// index of running task
 static WORD  sTaskNext;							// index of next task
-// todo rimpiazzare con puntatore a TCB
-static int sCurrentTask;						// running task
+static YOS_Task_t *sCurrentTask;				// running task
 
 // optimizer remove this function because C don't call it
 // is called in inline assembler only. So we disable optimizer
@@ -87,8 +86,8 @@ static void restore_context(register DWORD psp) {
 	);
 }
 
-int getNextTask(void) {
-	DWORD task;
+YOS_Task_t *getNextTask(void) {
+	YOS_Task_t *task;
 	int i = 0;
 
 	for (i = 0; i < sTaskNum; i++) {
@@ -97,13 +96,13 @@ int getNextTask(void) {
 		sTaskNext++;
 		if (sTaskNext == sTaskNum)
 			sTaskNext = 0;
-		task = gTaskList[sTaskIndex];
-		if ((task & 1) == 0) {
-			return sTaskIndex;
+		task = &gTaskList[sTaskIndex];
+		if ((task->tSignal & 1) == 0) {
+			return task;
 		}
 	}
 
-	return -1;
+	return 0;
 }
 
 SECTION(".text.startup")
@@ -116,13 +115,13 @@ void YOS_SvcDispatch(int svcid) {
 	int taskIdx;
 	switch(svcid) {
 		case DO_WAIT:
-			gTaskList[sTaskIndex] |= 1;
+			gTaskList[sTaskIndex].tSignal = 1;
 			reschedule();
 			break;
 
 		case DO_SIGNAL:
 			// get task index
-			gTaskList[taskIdx] &= ~1;
+			gTaskList[taskIdx].tSignal = 0;
 			sTaskNext = taskIdx;
 			// no break
 
@@ -147,7 +146,8 @@ void YOS_StartOsIrq(void) {
 	// Start sys ticks
 	CTX_SYST->CSR |= 1;
 	// restore context first task
-	restore_context(gTaskList[0]);
+	sCurrentTask = &gTaskList[0];
+	restore_context(sCurrentTask->tPsp << 1);
 	// start first task
 	asm volatile ("pop {pc}");
 }
@@ -163,7 +163,7 @@ void YOS_SystemTickIrq(void) {
 NAKED
 OPTIMIZE(O1)
 void YOS_Scheduler(void) {
-	register int taskId asm("r3");
+	register YOS_Task_t *task asm("r3");
 	register DWORD psp asm("r2");
 	// taskId = getNextTask();
 	// use inline asm to control register usage
@@ -171,10 +171,10 @@ void YOS_Scheduler(void) {
 			"push 	{lr}			\t\n"
 			"bl		getNextTask		\t\n"
 			"mov	%0,r0			\t\n"
-			:"=r"(taskId)::"r0"
+			:"=r"(task)::"r0"
 	);
 
-	if (taskId >= 0) {
+	if (task != 0) {
 		// new task running. do a context switch
 		// use inline asm to control register usage
 		//gTaskList[sCurrentTask] = save_context();
@@ -184,12 +184,12 @@ void YOS_Scheduler(void) {
 			:"=r"(psp)::"r0"
 		);
 		// ** until here we MUST NOT touch r4-r11 **
-		gTaskList[sCurrentTask] = psp;
-		sCurrentTask = taskId;
+		sCurrentTask->tPsp = psp >> 1;
+		sCurrentTask = task;
 		// remove sleep on exit bit so system continue run.
 		*CTX_SCB_SCR   &= ~CTX_SCBSCR_SleepOnExit;
 		// must be the last operation before return
-		restore_context(gTaskList[taskId]);
+		restore_context(task->tPsp << 1);
 		// ** from here we MUST NOT touch r4-r11 **
 	} else {
 		// no task running go sleep when exit
@@ -214,7 +214,8 @@ void YOS_AddTask(YOS_Routine *code) {
 	newTask[14] = (DWORD)code;
 	// force T bit in xPSR (without it we have and hard fault)
 	newTask[15] = 0x1000000;
-	gTaskList[sTaskNum++] = (DWORD)newTask;
+	gTaskList[sTaskNum].tPsp = (DWORD)newTask>>1;
+	gTaskList[sTaskNum++].tSignal = 0;
 }
 
 void YOS_InitOs(void) {

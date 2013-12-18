@@ -29,9 +29,11 @@
 */
 
 #include <types.h>
+#include <yos.h>
 
 #define MAX_TASK	4
 
-DWORD gTaskList[4];
+ALIGNED(4)
+YOS_Task_t gTaskList[4];
 const WORD gMaxTask = MAX_TASK;
 

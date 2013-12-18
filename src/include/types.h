@@ -38,6 +38,7 @@
 #define SECTION(a)		__attribute__((section(a)))
 #define ALIAS(a)		__attribute__((weak,alias(#a)))
 #define OPTIMIZE(a)		__attribute__((optimize(#a)))
+#define ALIGNED(a)		__attribute__((aligned(a)))
 
 #define NULL					((void*)0L)
 

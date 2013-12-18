@@ -56,6 +56,11 @@ enum {
 			CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet; \
 	} while(0)
 
+typedef struct {
+	DWORD	tPsp:31;
+	DWORD	tSignal:1;
+} YOS_Task_t;
+
 void YOS_InitOs(void);
 void YOS_Start(void);
 
