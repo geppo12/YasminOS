@@ -38,7 +38,6 @@ extern YOS_Task_t gTaskList[];
 extern const WORD gMaxTask;
 extern DWORD _estack;
 static BYTE *sTaskMemory;
-static DWORD *sTopMemory;
 static DWORD sSystemTicks;
 static WORD	 sTaskNum;							// number of task
 static WORD	 sTaskIndex;						// index of running task
@@ -52,6 +51,7 @@ static YOS_Task_t *sCurrentTask;				// running task
 //       and r0-r3 are scratch register (see AAPCS standard)
 //
 NAKED
+UNUSED
 SECTION(".text.startup")
 OPTIMIZE(O0)
 static DWORD save_context(void) {
@@ -68,6 +68,8 @@ static DWORD save_context(void) {
 			"mrs   r0,psp		\t\n" // return correct value of psp
 			"bx    lr           \t\n" // return
 	);
+	// suppress warning
+	return 0;
 }
 
 NAKED
@@ -207,15 +209,21 @@ void YOS_Scheduler(void) {
 	asm volatile("pop {r4,pc}");
 }
 
-void YOS_AddTask(YOS_Routine *code) {
+void YOS_AddTask(YOS_Routine code, int stackSize) {
 	register int i;
 	// TODO YOS_AddTask
 	register DWORD *newTask;
 
+	if (stackSize < 0)
+		stackSize = TASK_SIZE;
+
+	// stack should be 4 aligned
+	stackSize &= ~3L;
+
 	newTask = (DWORD *)(sTaskMemory);
-	sTaskMemory -= TASK_SIZE;
+	sTaskMemory -= stackSize;
 	// zero task memory
-	for (i = 0; i < TASK_SIZE; i++)
+	for (i = 0; i < stackSize; i++)
 		sTaskMemory[i] = 0;
 	// add return stak frame (cortex unstaking)
 	newTask 	-= 16;
@@ -229,6 +237,7 @@ void YOS_AddTask(YOS_Routine *code) {
 
 void YOS_InitOs(void) {
 	extern DWORD _stack;
+	// stack memory is their stack. We start form top and decrease stack every time we add a new task
 	sTaskMemory = (BYTE *)&_stack;
 	// Setup System Ticks but don't start IT
 	CTX_SYST->RVR = 0x00030D3F;

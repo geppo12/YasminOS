@@ -41,8 +41,9 @@ void task1(void) {
 
 void task2(void) {
 	int r = 0;
+	volatile i = 0;
 	while(1) {
-		asm volatile("nop");
+		i++;
 		if (r++ == 10) {
 			SIGNAL(0,1);
 			r = 0;
@@ -54,8 +55,8 @@ NAKED
 int main(void) {
 	// TODO sistemare memoria
 	YOS_InitOs();
-	YOS_AddTask(task1);
-	YOS_AddTask(task2);
+	YOS_AddTask(task1,TASK_SIZE);
+	YOS_AddTask(task2,TASK_SIZE);
 	YOS_Start();
 }
 

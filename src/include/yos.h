@@ -56,5 +56,6 @@ typedef struct {
 
 void YOS_InitOs(void);
 void YOS_Start(void);
+void YOS_AddTask(YOS_Routine,int);
 
 #endif /* YOS_H_ */

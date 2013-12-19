@@ -39,6 +39,7 @@
 #define ALIAS(a)		__attribute__((weak,alias(#a)))
 #define OPTIMIZE(a)		__attribute__((optimize(#a)))
 #define ALIGNED(a)		__attribute__((aligned(a)))
+#define UNUSED			__attribute__((unused))
 
 #define NULL					((void*)0L)
 
