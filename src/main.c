@@ -35,12 +35,18 @@
 void task1(void) {
 	while(1) {
 		asm volatile("nop");
+		WAIT();
 	}
 }
 
 void task2(void) {
+	int r = 0;
 	while(1) {
 		asm volatile("nop");
+		if (r++ == 10) {
+			SIGNAL(0,1);
+			r = 0;
+		}
 	}
 }
 

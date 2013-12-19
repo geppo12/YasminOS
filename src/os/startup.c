@@ -122,25 +122,25 @@ SECTION("text.startup")
 NAKED
 static void SvcIrq(void) {
 	asm volatile (
-		"movs	r0,#4				\t\n"
-		"mov 	r1,lr				\t\n"
-		"tst	r0,r1				\t\n"
+		"movs	r2,#4				\t\n"
+		"mov 	r3,lr				\t\n"
+		"tst	r2,r3				\t\n"
 		"beq	1f					\t\n"
-		"mrs	r0,psp				\t\n"
+		"mrs	r2,psp				\t\n"
 		"b		2f					\t\n"
 		"1:                         \t\n"
-		"mrs	r0,msp				\t\n"
+		"mrs	r2,msp				\t\n"
 		"2:							\t\n"
-		"ldr	r1,[r0,#24]			\t\n"
-		"sub	r1,#2				\t\n"
-		"ldrb	r0,[r1]				\t\n"
-		"cmp	r0,#0				\t\n"
+		"ldr	r3,[r2,#24]			\t\n"
+		"sub	r3,#2				\t\n"
+		"ldrb	r2,[r3]				\t\n"
+		"cmp	r2,#0				\t\n"
 		"bne	1f					\t\n"
-		"ldr	r0,=YOS_StartOsIrq	\t\n"
-		"bx		r0					\t\n"
+		"ldr	r2,=YOS_StartOsIrq	\t\n"
+		"bx		r2					\t\n"
 		"1:							\t\n"
-		"ldr	r1,=YOS_SvcDispatch	\t\n"
-		"bx		r1					\t\n"
+		"ldr	r3,=YOS_SvcDispatch	\t\n"
+		"bx		r3					\t\n"
 	);
 }
 

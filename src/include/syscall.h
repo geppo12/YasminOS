@@ -28,33 +28,56 @@
 	 along with 'Yasmine OS'. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef YOS_H_
-#define YOS_H_
+#ifndef SYSCALL_H_
+#define SYSCALL_H_
 
-#include <types.h>
-#include <cortex_m0.h>
-#include <syscall.h>
+// system call IDs
+enum {
+	DO_WAIT = 1,		// value 0 is reserved for start
+	DO_SIGNAL,
+	DO_RESCHEDULE,
+};
 
-// this define all memory for a task (context+stack)
-#define TASK_SIZE	256
+// System call macro without any parameter
+#define SYS_CALL0(a)	do { asm volatile ("svc %0"::"I"(DO_##a)); } while(0)
 
-typedef void (*YOS_Routine)(void);
+// System call macro with one parameter
+#define SYS_CALL1(a,b)			\
+	do { 						\
+		register DWORD r = b;	\
+		asm volatile (			\
+			"mov r0,%[par1]	\n"	\
+			"svc %[call]	\n"	\
+			::[par1]"r"(r), [call]"I"(DO_##a) \
+		);						\
+	} while(0);
 
-// exit irq macro. Set pending bit if return goes back in thread mode
-#define EXIT_IRQ()									\
-	do {											\
-		register DWORD reg;							\
-		asm volatile ("mov %0,lr":"=r"(reg));		\
-		if ((reg & 4) != 0)							\
-			CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet; \
-	} while(0)
+// System call macro with two parameter
+#define SYS_CALL2(a,p1,p2)		\
+	do { 						\
+		register DWORD r1 = p1;	\
+		register DWORD r2 = p2; \
+		asm volatile (			\
+			"mov r0,%[par1]	\n"	\
+			"mov r1,%[par2]	\n" \
+			"svc %[call]	\n"	\
+			::[par1]"r"(r1), [par2]"r"(r2), [call]"I"(DO_##a) \
+		);						\
+	} while(0);
 
-typedef struct {
-	DWORD	tPsp:31;
-	DWORD	tSignal:1;
-} YOS_Task_t;
+// efficent coding of SIGNAL system call
+#define SIGNAL(task,signal)		\
+	do { 						\
+		asm volatile (			\
+			"mov r0,%[par1]	\n"	\
+			"mov r1,%[par2]	\n" \
+			"svc %[call]	\n"	\
+			::[par1]"I"(task), [par2]"I"(signal), [call]"I"(DO_SIGNAL) \
+		);						\
+	} while(0);
 
-void YOS_InitOs(void);
-void YOS_Start(void);
+// alias for WAIT system call
+#define WAIT()	SYS_CALL0(WAIT)
 
-#endif /* YOS_H_ */
+
+#endif /* SYSCALL_H_ */

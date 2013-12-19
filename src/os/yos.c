@@ -72,6 +72,7 @@ static DWORD save_context(void) {
 
 NAKED
 SECTION(".text.startup")
+OPTIMIZE(O0)
 static void restore_context(register DWORD psp) {
 	asm volatile(
 			"mov   r1,r0        \t\n"
@@ -114,28 +115,22 @@ YOS_Task_t *getNextTask(void) {
 	return 0;
 }
 
-SECTION(".text.startup")
-static void reschedule(void) {
-	*CTX_SCB_ICSR |= CTX_SCBICSR_PendSVSet;
-}
-
 // no startup, can grow
-void YOS_SvcDispatch(int svcid) {
-	int taskIdx;
+// AAPCS use r0 = par1, r1 = par2, r2 = svcid
+// do not change order of parameter
+void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
 			gTaskList[sTaskIndex].tSignal = 1;
-			reschedule();
 			break;
 
 		case DO_SIGNAL:
 			// get task index
-			gTaskList[taskIdx].tSignal = 0;
-			sTaskNext = taskIdx;
-			// no break
+			gTaskList[par1].tSignal = 0;
+			sTaskNext = par1;
+			break;
 
 		case DO_RESCHEDULE:
-			reschedule();
 			break;
 
 		default:
@@ -169,6 +164,7 @@ void YOS_SystemTickIrq(void) {
 
 // naked: last istruction MUST BE only pop {pc}
 // force optimization: when change optimization level in makefile code don't change
+// use O1 optimization because we don't want inlining
 NAKED
 OPTIMIZE(O1)
 void YOS_Scheduler(void) {
@@ -244,6 +240,7 @@ void YOS_InitOs(void) {
 }
 
 NAKED
+OPTIMIZE(O0)
 void YOS_Start(void) {
 	// Reset stack. Set processor stack
 	asm volatile (
