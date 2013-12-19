@@ -43,11 +43,7 @@ void task2(void) {
 	int r = 0;
 	volatile i = 0;
 	while(1) {
-		i++;
-		if (r++ == 10) {
-			SIGNAL(0,1);
-			r = 0;
-		}
+		WAIT();
 	}
 }
 

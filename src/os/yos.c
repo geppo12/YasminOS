@@ -93,11 +93,19 @@ static void restore_context(register DWORD psp) {
 }
 
 static void setSleepOnExit(void) {
-	*CTX_SCB_SCR   |= CTX_SCBSCR_SleepOnExit;
+	// set sleep on exit
+	CTX_SCB->SCR   |= CTX_SCBSCR_SleepOnExit;
+	// disable sys ticks
+	CTX_SYST->CSR  &= ~1;
+
 }
 static void resetSleepOnExit(void) {
-	*CTX_SCB_SCR   &= ~CTX_SCBSCR_SleepOnExit;
+	// disable sleep on exit
+	CTX_SCB->SCR   &= ~CTX_SCBSCR_SleepOnExit;
+	// enable sys ticks
+	CTX_SYST->CSR  |= 1;
 }
+
 YOS_Task_t *getNextTask(void) {
 	YOS_Task_t *task;
 	int i = 0;
