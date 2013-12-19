@@ -48,6 +48,9 @@ static YOS_Task_t *sCurrentTask;				// running task
 // optimizer remove this function because C don't call it
 // is called in inline assembler only. So we disable optimizer
 // just for this function
+// NOTE: we don't save register on master stack because r4-r11 are task register
+//       and r0-r3 are scratch register (see AAPCS standard)
+//
 NAKED
 SECTION(".text.startup")
 OPTIMIZE(O0)
@@ -86,6 +89,12 @@ static void restore_context(register DWORD psp) {
 	);
 }
 
+static void setSleepOnExit(void) {
+	*CTX_SCB_SCR   |= CTX_SCBSCR_SleepOnExit;
+}
+static void resetSleepOnExit(void) {
+	*CTX_SCB_SCR   &= ~CTX_SCBSCR_SleepOnExit;
+}
 YOS_Task_t *getNextTask(void) {
 	YOS_Task_t *task;
 	int i = 0;
@@ -163,39 +172,43 @@ void YOS_SystemTickIrq(void) {
 NAKED
 OPTIMIZE(O1)
 void YOS_Scheduler(void) {
-	register YOS_Task_t *task asm("r3");
-	register DWORD psp asm("r2");
+	static YOS_Task_t *task;
+	static DWORD psp;
 	// taskId = getNextTask();
 	// use inline asm to control register usage
 	asm volatile(
-			"push 	{lr}			\t\n"
+			"push 	{r4,lr}			\t\n"
 			"bl		getNextTask		\t\n"
 			"mov	%0,r0			\t\n"
-			:"=r"(task)::"r0"
+			:"=r"(task)::"r0","r4"
 	);
-
 	if (task != 0) {
-		// new task running. do a context switch
-		// use inline asm to control register usage
-		//gTaskList[sCurrentTask] = save_context();
-		asm volatile (
-			"bl		save_context	\t\n"
-			"mov    %0,r0           \t\n"
-			:"=r"(psp)::"r0"
-		);
-		// ** until here we MUST NOT touch r4-r11 **
-		sCurrentTask->tPsp = psp >> 1;
-		sCurrentTask = task;
-		// remove sleep on exit bit so system continue run.
-		*CTX_SCB_SCR   &= ~CTX_SCBSCR_SleepOnExit;
-		// must be the last operation before return
-		restore_context(task->tPsp << 1);
-		// ** from here we MUST NOT touch r4-r11 **
+		resetSleepOnExit();
+		if (task != sCurrentTask) {
+			// new task running. do a context switch
+			// restore used regs
+			// gTaskList[sCurrentTask] = save_context();
+			asm volatile (
+				"pop	{r4}			\n"
+				"bl		save_context	\n"
+				"mov	%0,r0			\n"
+				:"=r"(psp)::"r0","r4"
+			);
+			// ** until here we MUST NOT touch r4-r11 **
+			sCurrentTask->tPsp = psp >> 1;
+			sCurrentTask = task;
+			// must be the last operation before return
+			restore_context(task->tPsp << 1);
+			// trash away r4 on stack and exit loading pc
+			// ** return
+			asm volatile ("pop {pc}");
+			return;
+		}
 	} else {
 		// no task running go sleep when exit
-		*CTX_SCB_SCR   |= CTX_SCBSCR_SleepOnExit;
+		setSleepOnExit();
 	}
-	asm volatile("pop {pc}");
+	asm volatile("pop {r4,pc}");
 }
 
 void YOS_AddTask(YOS_Routine *code) {
