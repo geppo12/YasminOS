@@ -1,7 +1,7 @@
-Yasmine OS
-==========
+Yasmin OS
+=========
 
-Yasmine OS is a lightweight Operative System for Cortex-M0+
+Yasmin OS is a lightweight Operative System for Cortex-M0+
 
 1. Compact: only 2k for kernel
 2. Easy: no gigabyte of source code. Only one C module
