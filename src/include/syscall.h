@@ -50,7 +50,7 @@ enum {
 			"svc %[call]	\n"	\
 			::[par1]"r"(r), [call]"I"(DO_##a) \
 		);						\
-	} while(0);
+	} while(0)
 
 // System call macro with two parameter
 #define SYS_CALL2(a,p1,p2)		\
@@ -63,7 +63,7 @@ enum {
 			"svc %[call]	\n"	\
 			::[par1]"r"(r1), [par2]"r"(r2), [call]"I"(DO_##a) \
 		);						\
-	} while(0);
+	} while(0)
 
 // efficent coding of SIGNAL system call
 #define SIGNAL(task,signal)		\
@@ -74,7 +74,7 @@ enum {
 			"svc %[call]	\n"	\
 			::[par1]"I"(task), [par2]"I"(signal), [call]"I"(DO_SIGNAL) \
 		);						\
-	} while(0);
+	} while(0)
 
 // alias for WAIT system call
 #define WAIT()	SYS_CALL0(WAIT)
