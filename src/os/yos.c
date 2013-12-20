@@ -2,7 +2,7 @@
 	 Copyright (c) 2013 Giuseppe Monteleone, All rights reserved.
 	 contact info@ing-monteleone.com
 
-	 This file is part of 'Yasmine OS'
+	 This file is part of 'YasminOS'
 
 	 GNU Lesser General Public License Usage
 	 this file may be used under the terms of the GNU Lesser
@@ -25,7 +25,7 @@
 	 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 	 You should have received a copy of the GNU General Public License
-	 along with 'Yasmine OS'. If not, see <http://www.gnu.org/licenses/>.
+	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <stdbool.h>
