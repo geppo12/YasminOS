@@ -37,8 +37,8 @@
 extern DWORD _estack;
 static BYTE *sTaskMemory;
 static DWORD sSystemTicks;
-static YOS_Task_t *sTaskNext;					// index of next task
-static YOS_Task_t *sTaskList;					// lista dei task
+static int sTaskNum;
+static YOS_Task_t *sTaskList;					// taskList
 static YOS_Task_t *sCurrentTask;				// running task
 
 // optimizer remove this function because C don't call it
@@ -104,20 +104,22 @@ static void resetSleepOnExit(void) {
 }
 
 YOS_Task_t *getNextTask(void) {
-	YOS_Task_t *task = sTaskList;
+	register YOS_Task_t *retVal, *task;
+	register int i;
 
-	if (sTaskNext != 0) {
-		task = sTaskNext;
-		sTaskNext = 0;
-	}
+	retVal = 0L;
+	task =  sCurrentTask->tNext;
 
-	for (;task != NULL; task = task->tNext) {
-		if ((task->tSignal & 1) == 0) {
-			return task;
+	// note: task list is in loop
+	for (i = 0; i < sTaskNum; i++) {
+		if (task->tSignal == 0) {
+			retVal = task;
+			break;
 		}
+		task = task->tNext;
 	}
 
-	return 0;
+	return retVal;
 }
 
 // no startup, can grow
@@ -132,7 +134,6 @@ void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 		case DO_SIGNAL:
 			// get task index
 			((YOS_Task_t *)par1)->tSignal = 0;
-			sTaskNext = (YOS_Task_t *)par1;
 			break;
 
 		case DO_RESCHEDULE:
@@ -239,10 +240,12 @@ YOS_Task_t *YOS_AddTask(YOS_Routine code, int stackSize) {
 	if (sTaskList == 0L)
 		sTaskList = newTask;
 	else {
-		for (link = sTaskList; link->tNext != 0; link = link->tNext);
+		for (link = sTaskList; link->tNext != sTaskList; link = link->tNext);
 		link->tNext = newTask;
 	}
-	newTask->tNext = 0L;
+	// loop list
+	newTask->tNext = sTaskList;
+	sTaskNum++;
 	return newTask;
 }
 
