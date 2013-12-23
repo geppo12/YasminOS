@@ -32,6 +32,8 @@
 #include <cortex_m0.h>
 #include <yos.h>
 
+static YOS_Task_t *pTask1, *pTask2;
+
 void task1(void) {
 	while(1) {
 		asm volatile("nop");
@@ -40,10 +42,13 @@ void task1(void) {
 }
 
 void task2(void) {
-	int r = 0;
+	static int r = 0;
 	volatile i = 0;
 	while(1) {
-		WAIT();
+		if (r++ == 10) {
+			SIGNAL(pTask1,0);
+			r=0;
+		}
 	}
 }
 
@@ -51,8 +56,8 @@ NAKED
 int main(void) {
 	// TODO sistemare memoria
 	YOS_InitOs();
-	YOS_AddTask(task1,TASK_SIZE);
-	YOS_AddTask(task2,TASK_SIZE);
+	pTask1 = YOS_AddTask(task1,TASK_SIZE);
+	pTask2 = YOS_AddTask(task2,TASK_SIZE);
 	YOS_Start();
 }
 

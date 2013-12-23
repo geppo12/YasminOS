@@ -49,13 +49,16 @@ typedef void (*YOS_Routine)(void);
 			CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet; \
 	} while(0)
 
-typedef struct {
+typedef struct YOS_Task_s YOS_Task_t;
+
+struct YOS_Task_s {
+	YOS_Task_t *tNext;	// must be first member of structure
 	DWORD	tPsp:31;
 	DWORD	tSignal:1;
-} YOS_Task_t;
+};
 
 void YOS_InitOs(void);
 void YOS_Start(void);
-void YOS_AddTask(YOS_Routine,int);
+YOS_Task_t *YOS_AddTask(YOS_Routine,int);
 
 #endif /* YOS_H_ */

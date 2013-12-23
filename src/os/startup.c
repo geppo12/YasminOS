@@ -43,7 +43,7 @@ void YOS_SvcDispatch(int svcid);
 extern DWORD _estack;
 
 SECTION(".trace")
-BYTE strace[32];
+BYTE strace[128];
 
 SECTION(".vectors")
 void *vectors[] =
@@ -118,8 +118,9 @@ void DefaultIrq(void)
 	);
 }
 
-SECTION("text.startup")
 NAKED
+OPTIMIZE(O0)
+SECTION("text.startup")
 static void SvcIrq(void) {
 	asm volatile (
 		"movs	r2,#4				\t\n"

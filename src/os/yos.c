@@ -34,14 +34,11 @@
 #include <cortex_m0.h>
 #include <yos.h>
 
-extern YOS_Task_t gTaskList[];
-extern const WORD gMaxTask;
 extern DWORD _estack;
 static BYTE *sTaskMemory;
 static DWORD sSystemTicks;
-static WORD	 sTaskNum;							// number of task
-static WORD	 sTaskIndex;						// index of running task
-static WORD  sTaskNext;							// index of next task
+static YOS_Task_t *sTaskNext;					// index of next task
+static YOS_Task_t *sTaskList;					// lista dei task
 static YOS_Task_t *sCurrentTask;				// running task
 
 // optimizer remove this function because C don't call it
@@ -107,16 +104,14 @@ static void resetSleepOnExit(void) {
 }
 
 YOS_Task_t *getNextTask(void) {
-	YOS_Task_t *task;
-	int i = 0;
+	YOS_Task_t *task = sTaskList;
 
-	for (i = 0; i < sTaskNum; i++) {
-		// TODO possibile risparmiare il tempo di un'assegnamento ?
-		sTaskIndex = sTaskNext;
-		sTaskNext++;
-		if (sTaskNext == sTaskNum)
-			sTaskNext = 0;
-		task = &gTaskList[sTaskIndex];
+	if (sTaskNext != 0) {
+		task = sTaskNext;
+		sTaskNext = 0;
+	}
+
+	for (;task != NULL; task = task->tNext) {
 		if ((task->tSignal & 1) == 0) {
 			return task;
 		}
@@ -131,13 +126,13 @@ YOS_Task_t *getNextTask(void) {
 void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
-			gTaskList[sTaskIndex].tSignal = 1;
+			sCurrentTask->tSignal = 1;
 			break;
 
 		case DO_SIGNAL:
 			// get task index
-			gTaskList[par1].tSignal = 0;
-			sTaskNext = par1;
+			((YOS_Task_t *)par1)->tSignal = 0;
+			sTaskNext = (YOS_Task_t *)par1;
 			break;
 
 		case DO_RESCHEDULE:
@@ -160,7 +155,7 @@ void YOS_StartOsIrq(void) {
 	// Start sys ticks
 	CTX_SYST->CSR |= 1;
 	// restore context first task
-	sCurrentTask = &gTaskList[0];
+	sCurrentTask = sTaskList;
 	restore_context(sCurrentTask->tPsp << 1);
 	// start first task
 	asm volatile ("pop {pc}");
@@ -217,10 +212,10 @@ void YOS_Scheduler(void) {
 	asm volatile("pop {r4,pc}");
 }
 
-void YOS_AddTask(YOS_Routine code, int stackSize) {
+YOS_Task_t *YOS_AddTask(YOS_Routine code, int stackSize) {
 	register int i;
-	// TODO YOS_AddTask
-	register DWORD *newTask;
+	YOS_Task_t *newTask, *link;
+	DWORD *newTaskStack;
 
 	if (stackSize < 0)
 		stackSize = TASK_SIZE;
@@ -228,19 +223,27 @@ void YOS_AddTask(YOS_Routine code, int stackSize) {
 	// stack should be 4 aligned
 	stackSize &= ~3L;
 
-	newTask = (DWORD *)(sTaskMemory);
+	newTaskStack = (DWORD*)(sTaskMemory);
 	sTaskMemory -= stackSize;
-	// zero task memory
+	newTask = (YOS_Task_t *) (sTaskMemory);
+	// clear task mem
 	for (i = 0; i < stackSize; i++)
-		sTaskMemory[i] = 0;
+		((BYTE*)newTask)[i] = 0;
 	// add return stak frame (cortex unstaking)
-	newTask 	-= 16;
-	// set new PC
-	newTask[14] = (DWORD)code;
+	newTaskStack -= 16;
+	newTaskStack[14]= (DWORD)code;
 	// force T bit in xPSR (without it we have and hard fault)
-	newTask[15] = 0x1000000;
-	gTaskList[sTaskNum].tPsp = (DWORD)newTask>>1;
-	gTaskList[sTaskNum++].tSignal = 0;
+	newTaskStack[15] = 0x1000000;
+	newTask->tPsp = ((DWORD)newTaskStack >> 1);
+	newTask->tSignal = 0;
+	if (sTaskList == 0L)
+		sTaskList = newTask;
+	else {
+		for (link = sTaskList; link->tNext != 0; link = link->tNext);
+		link->tNext = newTask;
+	}
+	newTask->tNext = 0L;
+	return newTask;
 }
 
 void YOS_InitOs(void) {
@@ -261,12 +264,12 @@ OPTIMIZE(O0)
 void YOS_Start(void) {
 	// Reset stack. Set processor stack
 	asm volatile (
-		"ldr r0,=_estack	\t\n"
-		"msr msp,r0         \t\n"
-		"sub r0,#0x20 		\t\n"	//space for master stack pointer
-		"msr psp,r0         \t\n"
-		"mov r0,#2			\t\n"
-		"msr control,r0		\t\n"
-		"svc 0				\t\n"
+		"ldr r0,=_estack	\n"
+		"msr msp,r0         \n"
+		"sub r0,#0x20 		\n"	//space for master stack pointer
+		"msr psp,r0         \n"
+		"mov r0,#2			\n"
+		"msr control,r0		\n"
+		"svc #0				\n"
 	);
 }

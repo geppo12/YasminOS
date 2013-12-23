@@ -2,7 +2,7 @@
 	 Copyright (c) 2013 Giuseppe Monteleone, All rights reserved.
 	 contact info@ing-monteleone.com
 
-	 This file is part of 'YasminOS'
+	 This file is part of 'Yasmin OS'
 
 	 GNU Lesser General Public License Usage
 	 this file may be used under the terms of the GNU Lesser
@@ -25,7 +25,7 @@
 	 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 	 You should have received a copy of the GNU General Public License
-	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
+	 along with 'Yasmine OS'. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifndef SYSCALL_H_
@@ -69,10 +69,10 @@ enum {
 #define SIGNAL(task,signal)		\
 	do { 						\
 		asm volatile (			\
-			"mov r0,%[par1]	\n"	\
+			"ldr r0,%[par1]	\n"	\
 			"mov r1,%[par2]	\n" \
 			"svc %[call]	\n"	\
-			::[par1]"I"(task), [par2]"I"(signal), [call]"I"(DO_SIGNAL) \
+			::[par1]"m"(task), [par2]"I"(signal), [call]"I"(DO_SIGNAL) \
 		);						\
 	} while(0)
 
