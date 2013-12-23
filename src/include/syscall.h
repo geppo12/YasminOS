@@ -38,8 +38,10 @@ enum {
 	DO_RESCHEDULE,
 };
 
+// SYSCALL are like function AAPCS use R0-R3 as scratch register so sw need to inform compiler
+
 // System call macro without any parameter
-#define SYS_CALL0(a)	do { asm volatile ("svc %0"::"I"(DO_##a)); } while(0)
+#define SYS_CALL0(a)	do { asm volatile ("svc %0"::"I"(DO_##a): "r0","r1","r2","r3"); } while(0)
 
 // System call macro with one parameter
 #define SYS_CALL1(a,b)			\
@@ -49,6 +51,7 @@ enum {
 			"mov r0,%[par1]	\n"	\
 			"svc %[call]	\n"	\
 			::[par1]"r"(r), [call]"I"(DO_##a) \
+			: "r0","r1","r2","r3" \
 		);						\
 	} while(0)
 
@@ -62,6 +65,7 @@ enum {
 			"mov r1,%[par2]	\n" \
 			"svc %[call]	\n"	\
 			::[par1]"r"(r1), [par2]"r"(r2), [call]"I"(DO_##a) \
+			: "r0","r1","r2","r3" \
 		);						\
 	} while(0)
 
@@ -73,6 +77,7 @@ enum {
 			"mov r1,%[par2]	\n" \
 			"svc %[call]	\n"	\
 			::[par1]"m"(task), [par2]"I"(signal), [call]"I"(DO_SIGNAL) \
+			: "r0","r1","r2","r3" \
 		);						\
 	} while(0)
 
