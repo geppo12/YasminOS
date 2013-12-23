@@ -26,6 +26,10 @@
 
 	 You should have received a copy of the GNU General Public License
 	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
+
+	 EXAMPLE EXCEPTION
+	 This is and example file. Modification of this file does not constitute
+	 a derivative work of YasminOS
 */
 
 #include <types.h>

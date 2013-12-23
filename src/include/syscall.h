@@ -26,6 +26,12 @@
 
 	 You should have received a copy of the GNU General Public License
 	 along with 'Yasmine OS'. If not, see <http://www.gnu.org/licenses/>.
+
+	 SYSCALL EXCEPTION
+
+	 As special exception, if your code use YasminOS as RTOS, you
+	 may redistribute all object code that include this include file
+	 and these system call under terms of your choice
 */
 
 #ifndef SYSCALL_H_
