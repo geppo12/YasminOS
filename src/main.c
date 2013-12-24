@@ -58,8 +58,9 @@ void task2(void) {
 
 NAKED
 int main(void) {
-	// TODO sistemare memoria
-	YOS_InitOs();
+	extern DWORD _stack;
+	// task memory is like stack is allocated by decrement before
+	YOS_InitOs(&_stack);
 	pTask1 = YOS_AddTask(task1,TASK_SIZE);
 	pTask2 = YOS_AddTask(task2,TASK_SIZE);
 	YOS_Start();

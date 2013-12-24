@@ -32,7 +32,6 @@
 
 // user entry point
 extern int main(void);
-
 void DefaultIrq(void);
 static void SvcIrq(void);
 static void reset(void);
@@ -42,14 +41,15 @@ NAKED void YOS_StartOSIrq(void);
 void YOS_SvcDispatch(int svcid);
 extern DWORD _estack;
 
+
 SECTION(".trace")
 BYTE strace[128];
 
 SECTION(".vectors")
 void *vectors[] =
 {
-	(void *)&_estack,
-	reset,
+	(void *)&_estack,	// msp stack
+	reset,				// reset routine
 	DefaultIrq,
 	DefaultIrq,
 	DefaultIrq,
@@ -59,12 +59,12 @@ void *vectors[] =
 	0,
 	0,
 	0,
-	SvcIrq,
+	SvcIrq,				// service call IRQ
 	0,
 	0,
-	YOS_Scheduler,	// scheduler on PendSv
-	YOS_SystemTickIrq,
-	DefaultIrq, // start of device IRQ
+	YOS_Scheduler,		// scheduler on PendSv
+	YOS_SystemTickIrq,	// system ticks irq
+	DefaultIrq, 		// start of device IRQ
 	DefaultIrq,
 	DefaultIrq,
 	DefaultIrq,

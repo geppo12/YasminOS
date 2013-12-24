@@ -34,7 +34,6 @@
 #include <cortex_m0.h>
 #include <yos.h>
 
-extern DWORD _estack;
 static BYTE *sTaskMemory;
 static DWORD sSystemTicks;
 static int sTaskNum;
@@ -249,10 +248,9 @@ YOS_Task_t *YOS_AddTask(YOS_Routine code, int stackSize) {
 	return newTask;
 }
 
-void YOS_InitOs(void) {
-	extern DWORD _stack;
+void YOS_InitOs(void *taskMemory) {
 	// stack memory is their stack. We start form top and decrease stack every time we add a new task
-	sTaskMemory = (BYTE *)&_stack;
+	sTaskMemory = (BYTE *)taskMemory;
 	// Setup System Ticks but don't start IT
 	CTX_SYST->RVR = 0x00030D3F;
 	CTX_SYST->CVR = 0;
