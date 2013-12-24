@@ -28,10 +28,12 @@
 	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <types.h>
+
 #define TOP_RAM		((void*)0x10000400)
 
-void CallSvIrq(void) ALIAS(DefaultIrq);
-void PendSvIrq(void) ALIAS(DefaultIrq);
-void SysTicksIrq(void) ALIAS(DefaultIrq);
+void YOS_SvcIrq(void);
+void YOS_SchedulerIrq(void);
+void YOS_SystemTickIrq(void);
 
 

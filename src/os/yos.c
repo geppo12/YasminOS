@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <types.h>
 #include <cortex_m0.h>
+#include <vectors.h>
 #include <yos.h>
 
 static BYTE *sTaskMemory;
@@ -121,6 +122,33 @@ YOS_Task_t *getNextTask(void) {
 	return retVal;
 }
 
+NAKED
+OPTIMIZE(O0)
+SECTION("text.startup")
+void YOS_SvcIrq(void) {
+	asm volatile (
+		"movs	r2,#4				\t\n"
+		"mov 	r3,lr				\t\n"
+		"tst	r2,r3				\t\n"
+		"beq	1f					\t\n"
+		"mrs	r2,psp				\t\n"
+		"b		2f					\t\n"
+		"1:                         \t\n"
+		"mrs	r2,msp				\t\n"
+		"2:							\t\n"
+		"ldr	r3,[r2,#24]			\t\n"
+		"sub	r3,#2				\t\n"
+		"ldrb	r2,[r3]				\t\n"
+		"cmp	r2,#0				\t\n"
+		"bne	1f					\t\n"
+		"ldr	r2,=YOS_StartOsIrq	\t\n"
+		"bx		r2					\t\n"
+		"1:							\t\n"
+		"ldr	r3,=YOS_SvcDispatch	\t\n"
+		"bx		r3					\t\n"
+	);
+}
+
 // no startup, can grow
 // AAPCS use r0 = par1, r1 = par2, r2 = svcid
 // do not change order of parameter
@@ -172,7 +200,7 @@ void YOS_SystemTickIrq(void) {
 // use O1 optimization because we don't want inlining
 NAKED
 OPTIMIZE(O1)
-void YOS_Scheduler(void) {
+void YOS_SchedulerIrq(void) {
 	static YOS_Task_t *task;
 	static DWORD psp;
 	// taskId = getNextTask();

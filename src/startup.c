@@ -26,6 +26,10 @@
 
 	 You should have received a copy of the GNU General Public License
 	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
+
+	 EXAMPLE EXCEPTION
+	 This is and example file. Modification of this file does not constitute
+	 a derivative work of YasminOS
 */
 #include <types.h>
 #include <vectors.h>
@@ -33,14 +37,8 @@
 // user entry point
 extern int main(void);
 void DefaultIrq(void);
-static void SvcIrq(void);
 static void reset(void);
-NAKED void YOS_Scheduler(void);
-void YOS_SystemTickIrq(void);
-NAKED void YOS_StartOSIrq(void);
-void YOS_SvcDispatch(int svcid);
 extern DWORD _estack;
-
 
 SECTION(".trace")
 BYTE strace[128];
@@ -53,16 +51,16 @@ void *vectors[] =
 	DefaultIrq,
 	DefaultIrq,
 	DefaultIrq,
-	0,			// reserved
+	0,					// reserved
 	0,
 	0,
 	0,
 	0,
 	0,
-	SvcIrq,				// service call IRQ
+	YOS_SvcIrq,			// service call IRQ
 	0,
 	0,
-	YOS_Scheduler,		// scheduler on PendSv
+	YOS_SchedulerIrq,	// scheduler on PendSv
 	YOS_SystemTickIrq,	// system ticks irq
 	DefaultIrq, 		// start of device IRQ
 	DefaultIrq,
@@ -118,32 +116,6 @@ void DefaultIrq(void)
 	);
 }
 
-NAKED
-OPTIMIZE(O0)
-SECTION("text.startup")
-static void SvcIrq(void) {
-	asm volatile (
-		"movs	r2,#4				\t\n"
-		"mov 	r3,lr				\t\n"
-		"tst	r2,r3				\t\n"
-		"beq	1f					\t\n"
-		"mrs	r2,psp				\t\n"
-		"b		2f					\t\n"
-		"1:                         \t\n"
-		"mrs	r2,msp				\t\n"
-		"2:							\t\n"
-		"ldr	r3,[r2,#24]			\t\n"
-		"sub	r3,#2				\t\n"
-		"ldrb	r2,[r3]				\t\n"
-		"cmp	r2,#0				\t\n"
-		"bne	1f					\t\n"
-		"ldr	r2,=YOS_StartOsIrq	\t\n"
-		"bx		r2					\t\n"
-		"1:							\t\n"
-		"ldr	r3,=YOS_SvcDispatch	\t\n"
-		"bx		r3					\t\n"
-	);
-}
 
 SECTION(".text.startup")
 static void reset(void) {
