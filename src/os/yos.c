@@ -35,6 +35,8 @@
 #include <vectors.h>
 #include <yos.h>
 
+#define YOS_KERNEL	SECTION(".yos.kernel")
+
 static BYTE *sTaskMemory;
 static DWORD sSystemTicks;
 static int sTaskNum;
@@ -49,7 +51,7 @@ static YOS_Task_t *sCurrentTask;				// running task
 //
 NAKED
 UNUSED
-SECTION(".text.startup")
+YOS_KERNEL
 OPTIMIZE(O0)
 static DWORD save_context(void) {
 	asm volatile(
@@ -70,7 +72,7 @@ static DWORD save_context(void) {
 }
 
 NAKED
-SECTION(".text.startup")
+YOS_KERNEL
 OPTIMIZE(O0)
 static void restore_context(register DWORD psp) {
 	asm volatile(
@@ -89,6 +91,7 @@ static void restore_context(register DWORD psp) {
 	);
 }
 
+YOS_KERNEL
 static void setSleepOnExit(void) {
 	// set sleep on exit
 	CTX_SCB->SCR   |= CTX_SCBSCR_SleepOnExit;
@@ -96,6 +99,8 @@ static void setSleepOnExit(void) {
 	CTX_SYST->CSR  &= ~1;
 
 }
+
+YOS_KERNEL
 static void resetSleepOnExit(void) {
 	// disable sleep on exit
 	CTX_SCB->SCR   &= ~CTX_SCBSCR_SleepOnExit;
@@ -103,6 +108,7 @@ static void resetSleepOnExit(void) {
 	CTX_SYST->CSR  |= 1;
 }
 
+YOS_KERNEL
 YOS_Task_t *getNextTask(void) {
 	register YOS_Task_t *retVal, *task;
 	register int i;
@@ -123,8 +129,8 @@ YOS_Task_t *getNextTask(void) {
 }
 
 NAKED
+YOS_KERNEL
 OPTIMIZE(O0)
-SECTION("text.startup")
 void YOS_SvcIrq(void) {
 	asm volatile (
 		"movs	r2,#4				\t\n"
@@ -152,6 +158,7 @@ void YOS_SvcIrq(void) {
 // no startup, can grow
 // AAPCS use r0 = par1, r1 = par2, r2 = svcid
 // do not change order of parameter
+YOS_KERNEL
 void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
@@ -176,8 +183,8 @@ void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 // naked: last istruction MUST BE only pop {pc}
 // force optimization: when change optimization level in makefile code don't change
 NAKED
+YOS_KERNEL
 OPTIMIZE(O1)
-SECTION(".text.startup")
 void YOS_StartOsIrq(void) {
 	asm volatile("push {lr}");
 	// Start sys ticks
@@ -189,7 +196,7 @@ void YOS_StartOsIrq(void) {
 	asm volatile ("pop {pc}");
 }
 
-SECTION(".text.startup")
+YOS_KERNEL
 void YOS_SystemTickIrq(void) {
 	sSystemTicks++;
 	EXIT_IRQ();
@@ -199,6 +206,7 @@ void YOS_SystemTickIrq(void) {
 // force optimization: when change optimization level in makefile code don't change
 // use O1 optimization because we don't want inlining
 NAKED
+YOS_KERNEL
 OPTIMIZE(O1)
 void YOS_SchedulerIrq(void) {
 	static YOS_Task_t *task;
@@ -240,6 +248,7 @@ void YOS_SchedulerIrq(void) {
 	asm volatile("pop {r4,pc}");
 }
 
+YOS_KERNEL
 YOS_Task_t *YOS_AddTask(YOS_Routine code, int stackSize) {
 	register int i;
 	YOS_Task_t *newTask, *link;
@@ -276,6 +285,7 @@ YOS_Task_t *YOS_AddTask(YOS_Routine code, int stackSize) {
 	return newTask;
 }
 
+YOS_KERNEL
 void YOS_InitOs(void *taskMemory) {
 	// stack memory is their stack. We start form top and decrease stack every time we add a new task
 	sTaskMemory = (BYTE *)taskMemory;
@@ -289,6 +299,7 @@ void YOS_InitOs(void *taskMemory) {
 }
 
 NAKED
+YOS_KERNEL
 OPTIMIZE(O0)
 void YOS_Start(void) {
 	// Reset stack. Set processor stack

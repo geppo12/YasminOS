@@ -46,10 +46,12 @@ SECTIONS
   {
   	_text = .;
 	KEEP(*(.vectors))
-	KEEP(*(.text.startup))
-	. = 0x2FC; 
-	KEEP(*(.text.crp))   
+	KEEP(*(.startup))
+	/* we put text here beacuse is small */
     *(.text.*)
+	. = 0x2FC; 
+	KEEP(*(.crp))
+	*(.yos.kernel)
     *(.rodata.*)
     *(.glue_7)
     *(.glue_7t)

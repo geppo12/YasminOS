@@ -34,6 +34,8 @@
 #include <types.h>
 #include <vectors.h>
 
+#define STARTUP	SECTION(".startup")
+
 // user entry point
 extern int main(void);
 void DefaultIrq(void);
@@ -106,8 +108,8 @@ void *vectors[] =
 	DefaultIrq,
 };
 
-SECTION(".text.startup")
 NAKED
+STARTUP
 void DefaultIrq(void)
 {
 	asm volatile(
@@ -117,7 +119,7 @@ void DefaultIrq(void)
 }
 
 
-SECTION(".text.startup")
+STARTUP
 static void reset(void) {
 	extern DWORD _etext;
 	extern DWORD _data;
@@ -154,6 +156,6 @@ static void reset(void) {
 }
 
 // disable isp
-__attribute__((section(".text.crp")))
+SECTION(".crp")
 const unsigned long cpr = 0x4E697370;
 
