@@ -55,8 +55,8 @@ SECTIONS
     *(.rodata.*)
     *(.glue_7)
     *(.glue_7t)
-    . = ALIGN(4);
   } > CODE
+  . = ALIGN(4);
   _etext = .;
   
   .trace (NOLOAD) :
@@ -69,16 +69,16 @@ SECTIONS
   {
   	_data = .;
     *(.data.*)
-	. = ALIGN(4);  
   } > DRAM
+  . = ALIGN(4);  
   PROVIDE(_edata = .);
   
   .bss (NOLOAD) :
   {
   	_bss = .;
     *(.bss.*)
-    . = ALIGN(4);
   } > DRAM
+  . = ALIGN(4);
   PROVIDE(_ebss = .);
   
   
