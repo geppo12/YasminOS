@@ -36,33 +36,35 @@
 #include <cortex_m0.h>
 #include <yos.h>
 
-static YOS_Task_t *pTask1, *pTask2;
+static YOS_Task_t *pTask1, *pTask2, *pTask3;
 
 void task1(void) {
 	while(1) {
 		asm volatile("nop");
-		WAIT();
 	}
 }
 
 void task2(void) {
-	static int r = 0;
-	volatile i = 0;
 	while(1) {
-		if (r++ == 10) {
-			SIGNAL(pTask1,0);
-			r=0;
-		}
+		asm volatile("nop");
 	}
 }
+
+void task3(void) {
+	while(1) {
+		asm volatile("nop");
+	}
+}
+
 
 NAKED
 int main(void) {
 	extern DWORD _stack;
-	// task memory is like stack is allocated by decrement before
+	// TODO sistemare memoria
 	YOS_InitOs(&_stack);
-	pTask1 = YOS_AddTask(task1,TASK_SIZE);
-	pTask2 = YOS_AddTask(task2,TASK_SIZE);
+	pTask1 = YOS_AddTask(task1,128);
+	pTask2 = YOS_AddTask(task2,128);
+	pTask3 = YOS_AddTask(task3,128);
 	YOS_Start();
 }
 
