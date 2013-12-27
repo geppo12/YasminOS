@@ -59,6 +59,13 @@ $(OUTPUT).elf: $(OBJECTS)
 	$(CC) $(CFLAGS) -nostartfiles -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld -o $(OUTPUT).elf
 
 # compile comand	
-$(OBJECTS): $(OBJDIR)\\%.o: ..\src\\%.c
+# With '-MD' we generate dependancies. Dependancies file are the same *.o file (same name, same path) but with *.d extension
+$(OBJECTS): $(OBJDIR)\\%.o: $(SRCDIR)\\%.c
 	@if not exist $(dir $@) mkdir $(dir $@)
-	$(CC) $(CFLAGS) $(IPATH) -c $< -o $@
+	$(CC) $(CFLAGS) $(IPATH) -MD -c $< -o $@
+	
+
+# Include depenencies. Include directive with '-' so don't generate error if some file is missing	
+-include $(OBJECTS:.o=.d)
+
+	
