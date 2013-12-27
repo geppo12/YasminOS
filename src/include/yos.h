@@ -38,7 +38,7 @@
 // this define all memory for a task (context+stack)
 #define TASK_SIZE	256
 
-typedef void (*YOS_Routine)(void);
+typedef void (*YOS_Routine_t)(void);
 
 // exit irq macro. Set pending bit if return goes back in thread mode
 #define EXIT_IRQ()									\
@@ -59,6 +59,6 @@ struct YOS_Task_s {
 
 void YOS_InitOs(void *taskMemory);
 void YOS_Start(void);
-YOS_Task_t *YOS_AddTask(YOS_Routine,int);
+YOS_Task_t *YOS_AddTask(YOS_Routine_t,int);
 
 #endif /* YOS_H_ */

@@ -249,7 +249,7 @@ void YOS_SchedulerIrq(void) {
 }
 
 YOS_KERNEL
-YOS_Task_t *YOS_AddTask(YOS_Routine code, int stackSize) {
+YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	register int i;
 	YOS_Task_t *newTask, *link;
 	DWORD *newTaskStack;
