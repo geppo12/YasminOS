@@ -36,11 +36,12 @@ TARGET = yasminOs
 # add .. to source and obj directory (are outside build directory)
 OBJDIR := ..\$(OBJDIR)
 SRCDIR := ..\$(SRCDIR)
+DEFINE := $(addprefix -D,$(DEFINE))
 
 # not not configurable options
-CFLAGS = $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=cortex-m0 -mthumb -g3
+CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=cortex-m0 -ffunction-sections -mthumb -g3
 # include path
-IPATH  = -I$(SRCDIR)\include
+IPATH  := -I$(SRCDIR)\include
 
 #generate objects with objdir preponed 
 OBJECTS := $(addprefix $(OBJDIR)\,$(SRCS:.c=.o))
@@ -55,8 +56,8 @@ all: $(OUTPUT).elf
 	del $(OUTPUT).map
 
 # link comand
-$(OUTPUT).elf: $(OBJECTS)
-	$(CC) $(CFLAGS) -nostartfiles -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld -o $(OUTPUT).elf
+$(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld
+	$(CC) -nostartfiles -gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld -o $(OUTPUT).elf
 
 # compile comand	
 # With '-MD' we generate dependancies. Dependancies file are the same *.o file (same name, same path) but with *.d extension
