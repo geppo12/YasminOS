@@ -42,16 +42,22 @@ STACK_SIZE  = 0x100;
 
 SECTIONS
 {
+  .startup : 
+  {
+	KEEP(*(.vectors))
+	KEEP(*(.startup))
+  } > CODE
+  
+  .crp 0x2fc :
+  {
+	KEEP(*(.crp))
+  } > CODE
+  
   .text : 
   {
   	_text = .;
-	KEEP(*(.vectors))
-	KEEP(*(.startup))
-	/* we put text here beacuse is small */
-    *(.text.*)
-	. = 0x2FC; 
-	KEEP(*(.crp))
 	*(.yos.kernel)
+    *(.text.*)
     *(.rodata.*)
     *(.glue_7)
     *(.glue_7t)

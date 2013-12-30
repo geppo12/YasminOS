@@ -156,6 +156,8 @@ static void reset(void) {
 }
 
 // disable isp
+#ifdef USE_DISABLE_ISP
 SECTION(".crp")
 const unsigned long cpr = 0x4E697370;
+#endif
 

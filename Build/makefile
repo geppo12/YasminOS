@@ -68,7 +68,7 @@ endif
 
 # link comand
 $(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld
-	$(CC) -nostartfiles -gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld -o $(OUTPUT).elf
+	$(CC) -nostartfiles -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld -o $(OUTPUT).elf
 
 # compile comand	
 # With '-MD' we generate dependancies. Dependancies file are the same *.o file (same name, same path) but with *.d extension
