@@ -50,13 +50,21 @@ OBJECTS := $(addprefix $(OBJDIR)\,$(SRCS:.c=.o))
 OUTPUT  := $(OBJDIR)\$(TARGET)
 
 .PHONY: all
-all: $(OUTPUT).elf
+all: $(OUTPUT).elf size
 
 .PHONY: clean
 clean:
 	del $(OBJECTS)
 	del $(OUTPUT).elf
 	del $(OUTPUT).map
+
+.PHONY: size
+ifneq "$(CC-SIZE)" ""
+size: $(OUTPUT).elf
+	$(CC-SIZE) --format=barkley $(OUTPUT).elf
+else
+size:
+endif 
 
 # link comand
 $(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld

@@ -33,11 +33,11 @@
 #
 
 CC       := arm-none-eabi-gcc
+#if your compiler haven't size command left comment following line 
+CC-SIZE  := arm-none-eabi-size
 OPTIMIZE := -O0
 ARCH     := cortex-m0
-DEFINE   := 
-
-UNDEFINE := USE_DISABLE_ISP
+DEFINE   := USE_DISABLE_ISP
 
 SRCDIR   := src
 OBJDIR   := Objects
