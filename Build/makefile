@@ -37,6 +37,7 @@ TARGET = yasminOs
 OBJDIR := ..\$(OBJDIR)
 SRCDIR := ..\$(SRCDIR)
 DEFINE := $(addprefix -D,$(DEFINE))
+DEFINE += $(addprefix -U,$(UNDEFINE))
 
 # not not configurable options
 CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=cortex-m0 -ffunction-sections -mthumb -g3

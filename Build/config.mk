@@ -36,6 +36,8 @@ CC       := arm-none-eabi-gcc
 OPTIMIZE := -O0
 DEFINE   := 
 
+UNDEFINE := USE_DISABLE_ISP
+
 SRCDIR   := src
 OBJDIR   := Objects
 
