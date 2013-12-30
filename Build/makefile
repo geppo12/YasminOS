@@ -38,9 +38,10 @@ OBJDIR := ..\$(OBJDIR)
 SRCDIR := ..\$(SRCDIR)
 DEFINE := $(addprefix -D,$(DEFINE))
 DEFINE += $(addprefix -U,$(UNDEFINE))
+DEFINE += -D__arch_$(subst -,_,$(ARCH))__ 
 
 # not not configurable options
-CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=cortex-m0 -ffunction-sections -mthumb -g3
+CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(ARCH) -ffunction-sections -mthumb -g3
 # include path
 IPATH  := -I$(SRCDIR)\include
 

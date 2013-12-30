@@ -34,6 +34,7 @@
 
 CC       := arm-none-eabi-gcc
 OPTIMIZE := -O0
+ARCH     := cortex-m0
 DEFINE   := 
 
 UNDEFINE := USE_DISABLE_ISP
