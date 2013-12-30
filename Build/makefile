@@ -52,7 +52,8 @@ OUTPUT  := $(OBJDIR)\$(TARGET)
 .PHONY: all
 all: $(OUTPUT).elf
 
-.clean:
+.PHONY: clean
+clean:
 	del $(OBJECTS)
 	del $(OUTPUT).elf
 	del $(OUTPUT).map
