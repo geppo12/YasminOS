@@ -37,10 +37,15 @@
 
 #define YOS_KERNEL	SECTION(".yos.kernel")
 
+typedef struct {
+	YOS_Task_t *tlHead;
+	YOS_Task_t *tlTail;
+} YOS_TaskList_t;
+
 static BYTE *sTaskMemory;
 static DWORD sSystemTicks;
 static int sTaskNum;
-static YOS_Task_t *sTaskList;					// taskList
+static YOS_TaskList_t sTaskList;					// taskList
 static YOS_Task_t *sCurrentTask;				// running task
 
 // optimizer remove this function because C don't call it
@@ -190,7 +195,7 @@ void YOS_StartOsIrq(void) {
 	// Start sys ticks
 	CTX_SYST->CSR |= 1;
 	// restore context first task
-	sCurrentTask = sTaskList;
+	sCurrentTask = sTaskList.tlHead;
 	restore_context(sCurrentTask->tPsp << 1);
 	// start first task
 	asm volatile ("pop {pc}");
@@ -251,7 +256,7 @@ void YOS_SchedulerIrq(void) {
 YOS_KERNEL
 YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	register int i;
-	YOS_Task_t *newTask, *link;
+	YOS_Task_t *newTask;
 	DWORD *newTaskStack;
 
 	if (stackSize < 0)
@@ -273,14 +278,15 @@ YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	newTaskStack[15] = 0x1000000;
 	newTask->tPsp = ((DWORD)newTaskStack >> 1);
 	newTask->tSignal = 0;
-	if (sTaskList == 0L)
-		sTaskList = newTask;
-	else {
-		for (link = sTaskList; link->tNext != sTaskList; link = link->tNext);
-		link->tNext = newTask;
+	if (sTaskList.tlHead == 0L) {
+		sTaskList.tlHead = newTask;
+		sTaskList.tlTail = newTask;
+	} else {
+		sTaskList.tlTail->tNext = newTask;
+		sTaskList.tlTail = newTask;
 	}
 	// loop list
-	newTask->tNext = sTaskList;
+	newTask->tNext = sTaskList.tlHead;
 	sTaskNum++;
 	return newTask;
 }
