@@ -60,8 +60,9 @@ void task3(void) {
 NAKED
 int main(void) {
 	extern DWORD _stack;
+	extern DWORD _ebss;
 	// TODO sistemare memoria
-	YOS_InitOs(&_stack);
+	YOS_InitOs(&_ebss,&_stack);
 	pTask1 = YOS_AddTask(task1,128);
 	pTask2 = YOS_AddTask(task2,128);
 	pTask3 = YOS_AddTask(task3,128);
