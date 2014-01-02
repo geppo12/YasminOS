@@ -40,14 +40,15 @@ DEFINE := $(addprefix -D,$(DEFINE))
 DEFINE += $(addprefix -U,$(UNDEFINE))
 DEFINE += -D__arch_$(subst -,_,$(ARCH))__ 
 
-# not not configurable options
-CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(ARCH) -ffunction-sections -mthumb -g3
-# include path
-IPATH  := -I$(SRCDIR)\include
-
 #generate objects with objdir preponed 
 OBJECTS := $(addprefix $(OBJDIR)\,$(SRCS:.c=.o))
 OUTPUT  := $(OBJDIR)\$(TARGET)
+
+# not not configurable options
+CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(ARCH) -ffunction-sections -mthumb -g3
+LDFLAGS := -nostartfiles -mthumb -mcpu=$(ARCH) -lc -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld 
+# include path
+IPATH  := -I$(SRCDIR)\include
 
 .PHONY: all
 all: $(OUTPUT).elf size
@@ -68,7 +69,7 @@ endif
 
 # link comand
 $(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld
-	$(CC) -nostartfiles -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld -o $(OUTPUT).elf
+	$(CC) $(LDFLAGS) -o $(OUTPUT).elf 
 
 # compile comand	
 # With '-MD' we generate dependancies. Dependancies file are the same *.o file (same name, same path) but with *.d extension
