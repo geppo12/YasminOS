@@ -57,7 +57,7 @@ struct YOS_Task_s {
 	DWORD	tSignal:1;
 };
 
-void YOS_InitOs(void *taskMemory);
+void YOS_InitOs(void *taskMemory, void *taskTopMemory);
 void YOS_Start(void);
 YOS_Task_t *YOS_AddTask(YOS_Routine_t,int);
 

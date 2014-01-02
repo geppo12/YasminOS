@@ -43,6 +43,7 @@ typedef struct {
 } YOS_TaskList_t;
 
 static BYTE *sTaskMemory;
+static BYTE *sTaskMemoryLimit;
 static DWORD sSystemTicks;
 static int sTaskNum;
 static YOS_TaskList_t sTaskList;					// taskList
@@ -256,8 +257,9 @@ void YOS_SchedulerIrq(void) {
 YOS_KERNEL
 YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	register int i;
-	YOS_Task_t *newTask;
+	YOS_Task_t *newTask = 0L;
 	DWORD *newTaskStack;
+	BYTE *newTaskMemory;
 
 	if (stackSize < 0)
 		stackSize = TASK_SIZE;
@@ -266,35 +268,39 @@ YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	stackSize &= ~3L;
 
 	newTaskStack = (DWORD*)(sTaskMemory);
-	sTaskMemory -= stackSize;
-	newTask = (YOS_Task_t *) (sTaskMemory);
-	// clear task mem
-	for (i = 0; i < stackSize; i++)
-		((BYTE*)newTask)[i] = 0;
-	// add return stak frame (cortex unstaking)
-	newTaskStack -= 16;
-	newTaskStack[14]= (DWORD)code;
-	// force T bit in xPSR (without it we have and hard fault)
-	newTaskStack[15] = 0x1000000;
-	newTask->tPsp = ((DWORD)newTaskStack >> 1);
-	newTask->tSignal = 0;
-	if (sTaskList.tlHead == 0L) {
-		sTaskList.tlHead = newTask;
-		sTaskList.tlTail = newTask;
-	} else {
-		sTaskList.tlTail->tNext = newTask;
-		sTaskList.tlTail = newTask;
+	newTaskMemory = sTaskMemory - stackSize;
+	if (newTaskMemory > sTaskMemoryLimit) {
+		sTaskMemory = newTaskMemory;
+		newTask = (YOS_Task_t *) (sTaskMemory);
+		// clear task mem
+		for (i = 0; i < stackSize; i++)
+			((BYTE*)newTask)[i] = 0;
+		// add return stak frame (cortex unstaking)
+		newTaskStack -= 16;
+		newTaskStack[14]= (DWORD)code;
+		// force T bit in xPSR (without it we have and hard fault)
+		newTaskStack[15] = 0x1000000;
+		newTask->tPsp = ((DWORD)newTaskStack >> 1);
+		newTask->tSignal = 0;
+		if (sTaskList.tlHead == 0L) {
+			sTaskList.tlHead = newTask;
+			sTaskList.tlTail = newTask;
+		} else {
+			sTaskList.tlTail->tNext = newTask;
+			sTaskList.tlTail = newTask;
+		}
+		// loop list
+		newTask->tNext = sTaskList.tlHead;
+		sTaskNum++;
 	}
-	// loop list
-	newTask->tNext = sTaskList.tlHead;
-	sTaskNum++;
 	return newTask;
 }
 
 YOS_KERNEL
-void YOS_InitOs(void *taskMemory) {
+void YOS_InitOs(void *taskMemory, void *taskTopMemory) {
 	// stack memory is their stack. We start form top and decrease stack every time we add a new task
-	sTaskMemory = (BYTE *)taskMemory;
+	sTaskMemory = (BYTE *)taskTopMemory;
+	sTaskMemoryLimit = (BYTE *)taskMemory;
 	// Setup System Ticks but don't start IT
 	CTX_SYST->RVR = 0x00030D3F;
 	CTX_SYST->CVR = 0;
