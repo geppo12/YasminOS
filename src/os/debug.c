@@ -38,7 +38,7 @@ static volatile BYTE sInData, sOutData;
 #ifdef USE_PRINTF
 static void print_i(DWORD data, int radix, int len) {
 	/* static to reduce stack use */
-	static char buffer[10];
+	char buffer[10];
 	short i;
 	BYTE digit;
 	BYTE uc;
@@ -84,10 +84,9 @@ void YOS_DbgPuts(char *s) {
 #ifdef USE_PRINTF
 void YOS_DbgPrintf(const char *format, ...) {
    va_list args;
-   /* static to reduce stack use */
-   static int iarg,len = 0;
-   static char *sarg;
-   static bool open;
+   int iarg,len = 0;
+   char *sarg;
+   bool open;
 
    open=false;
 
