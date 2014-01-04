@@ -50,41 +50,41 @@ enum {
 #define SYS_CALL0(a)	do { asm volatile ("svc %0"::"I"(DO_##a): "r0","r1","r2","r3"); } while(0)
 
 // System call macro with one parameter
-#define SYS_CALL1(a,b)			\
-	do { 						\
-		register DWORD r = b;	\
-		asm volatile (			\
-			"mov r0,%[par1]	\n"	\
-			"svc %[call]	\n"	\
+#define SYS_CALL1(a,b)					\
+	do { 								\
+		register DWORD r = (DWORD)b;	\
+		asm volatile (					\
+			"mov r0,%[par1]	\n"			\
+			"svc %[call]	\n"			\
 			::[par1]"r"(r), [call]"I"(DO_##a) \
-			: "r0","r1","r2","r3" \
-		);						\
+			: "r0","r1","r2","r3" 		\
+		);								\
 	} while(0)
 
 // System call macro with two parameter
-#define SYS_CALL2(a,p1,p2)		\
-	do { 						\
-		register DWORD r1 = p1;	\
-		register DWORD r2 = p2; \
-		asm volatile (			\
-			"mov r0,%[par1]	\n"	\
-			"mov r1,%[par2]	\n" \
-			"svc %[call]	\n"	\
+#define SYS_CALL2(a,p1,p2)				\
+	do { 								\
+		register DWORD r1 = (DWORD)p1;	\
+		register DWORD r2 = (DWORD)p2; 	\
+		asm volatile (					\
+			"mov r0,%[par1]	\n"			\
+			"mov r1,%[par2]	\n" 		\
+			"svc %[call]	\n"			\
 			::[par1]"r"(r1), [par2]"r"(r2), [call]"I"(DO_##a) \
-			: "r0","r1","r2","r3" \
-		);						\
+			: "r0","r1","r2","r3" 		\
+		);								\
 	} while(0)
 
 // efficent coding of SIGNAL system call
-#define SIGNAL(task,signal)		\
-	do { 						\
-		asm volatile (			\
-			"ldr r0,%[par1]	\n"	\
-			"mov r1,%[par2]	\n" \
-			"svc %[call]	\n"	\
+#define SIGNAL(task,signal)				\
+	do { 								\
+		asm volatile (					\
+			"ldr r0,%[par1]	\n"			\
+			"mov r1,%[par2]	\n" 		\
+			"svc %[call]	\n"			\
 			::[par1]"m"(task), [par2]"I"(signal), [call]"I"(DO_SIGNAL) \
-			: "r0","r1","r2","r3" \
-		);						\
+			: "r0","r1","r2","r3" 		\
+		);								\
 	} while(0)
 
 // alias for WAIT system call
