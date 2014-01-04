@@ -54,7 +54,7 @@ typedef struct YOS_Task_s YOS_Task_t;
 struct YOS_Task_s {
 	YOS_Task_t *tNext;	// must be first member of structure
 	DWORD	tPsp:31;
-	DWORD	tSignal:1;
+	DWORD	tWaiting:1;
 };
 
 void YOS_InitOs(void *taskMemory, void *taskTopMemory);

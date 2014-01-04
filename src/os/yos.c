@@ -46,7 +46,7 @@ static BYTE *sTaskMemory;
 static BYTE *sTaskMemoryLimit;
 static DWORD sSystemTicks;
 static int sTaskNum;
-static YOS_TaskList_t sTaskList;					// taskList
+static YOS_TaskList_t sTaskList;				// taskList
 static YOS_Task_t *sCurrentTask;				// running task
 
 // optimizer remove this function because C don't call it
@@ -115,23 +115,37 @@ static void resetSleepOnExit(void) {
 }
 
 YOS_KERNEL
-YOS_Task_t *getNextTask(void) {
-	register YOS_Task_t *retVal, *task;
-	register int i;
-
-	retVal = 0L;
-	task =  sCurrentTask->tNext;
-
-	// note: task list is in loop
-	for (i = 0; i < sTaskNum; i++) {
-		if (task->tSignal == 0) {
-			retVal = task;
-			break;
-		}
-		task = task->tNext;
+static void taskEnqueue(YOS_Task_t *task) {
+	if (sTaskList.tlHead == 0) {
+		sTaskList.tlHead = task;
+		sTaskList.tlTail = task;
+	} else {
+		sTaskList.tlTail->tNext = task;
+		sTaskList.tlTail = task;
 	}
+	task->tNext = 0L;
+}
 
-	return retVal;
+YOS_KERNEL
+static YOS_Task_t *taskDequeue(void) {
+	YOS_Task_t *task;
+	task = sTaskList.tlHead;
+	if (task != 0)
+		sTaskList.tlHead = task->tNext;
+	// warn if sTaskList.tlHead == 0 tail remain dirty
+	return task;
+}
+
+
+YOS_KERNEL
+YOS_Task_t *getNextTask(void) {
+	register YOS_Task_t *task = 0L;
+
+	if (sCurrentTask->tWaiting == 0)
+		taskEnqueue(sCurrentTask);
+	task = taskDequeue();
+
+	return task;
 }
 
 NAKED
@@ -168,12 +182,12 @@ YOS_KERNEL
 void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
-			sCurrentTask->tSignal = 1;
+			sCurrentTask->tWaiting = 1;
 			break;
 
 		case DO_SIGNAL:
-			// get task index
-			((YOS_Task_t *)par1)->tSignal = 0;
+			((YOS_Task_t *)par1)->tWaiting = 0;
+			taskEnqueue((YOS_Task_t *)par1);
 			break;
 
 		case DO_RESCHEDULE:
@@ -196,7 +210,7 @@ void YOS_StartOsIrq(void) {
 	// Start sys ticks
 	CTX_SYST->CSR |= 1;
 	// restore context first task
-	sCurrentTask = sTaskList.tlHead;
+	sCurrentTask = taskDequeue();
 	restore_context(sCurrentTask->tPsp << 1);
 	// start first task
 	asm volatile ("pop {pc}");
@@ -281,16 +295,8 @@ YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 		// force T bit in xPSR (without it we have and hard fault)
 		newTaskStack[15] = 0x1000000;
 		newTask->tPsp = ((DWORD)newTaskStack >> 1);
-		newTask->tSignal = 0;
-		if (sTaskList.tlHead == 0L) {
-			sTaskList.tlHead = newTask;
-			sTaskList.tlTail = newTask;
-		} else {
-			sTaskList.tlTail->tNext = newTask;
-			sTaskList.tlTail = newTask;
-		}
-		// loop list
-		newTask->tNext = sTaskList.tlHead;
+		newTask->tWaiting = 0;
+		taskEnqueue(newTask);
 		sTaskNum++;
 	}
 	return newTask;
