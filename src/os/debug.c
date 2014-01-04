@@ -47,6 +47,7 @@ static void print_i(DWORD data, int radix, int len) {
 	uc = (len & 0x200) != 0 ? 0 : 0x20;
 	pad = (len & 0x100) != 0 ? true : false;
 	len &= 0xff;
+	i = 0;
 
 	while(data != 0) {
 		digit = data % radix;
@@ -106,11 +107,13 @@ void YOS_DbgPrintf(const char *format, ...) {
 		   	   case 'x':
 		   		   iarg = va_arg(args,int);
 		   		   print_i(iarg,16,len);
+		   		   open = false;
 		   		   break;
 
 		   	   case 'd':
 		   		   iarg = va_arg(args,int);
 		   		   print_i(iarg,10,len);
+		   		   open = false;
 		   		   break;
 
 		   	   case 's':
@@ -133,6 +136,8 @@ void YOS_DbgPrintf(const char *format, ...) {
 		   open = true;
 		   len = 0;
 	   } else {
+		   if (*format == '\n')
+			   YOS_DbgPutc('\r');
 		   YOS_DbgPutc(*format);
 	   }
 	   format++;

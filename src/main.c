@@ -35,6 +35,7 @@
 #include <types.h>
 #include <cortex_m0.h>
 #include <yos.h>
+#include <debug.h>
 
 static YOS_Task_t *pTask1, *pTask2, *pTask3;
 
@@ -51,8 +52,10 @@ void task2(void) {
 }
 
 void task3(void) {
+	int i=0;
 	while(1) {
-		asm volatile("nop");
+		YOS_DbgPrintf("test %d\n",i++);
+		//asm volatile("nop");
 	}
 }
 
@@ -65,7 +68,7 @@ int main(void) {
 	YOS_InitOs(&_ebss,&_stack);
 	pTask1 = YOS_AddTask(task1,128);
 	pTask2 = YOS_AddTask(task2,128);
-	pTask3 = YOS_AddTask(task3,128);
+	pTask3 = YOS_AddTask(task3,256);
 	YOS_Start();
 }
 
