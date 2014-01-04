@@ -32,13 +32,20 @@
 #	 a derivative work of YasminOS
 #
 
+# mandatory
 CC       := arm-none-eabi-gcc
+# mandatory
+CC-OBJDUMP := arm-none-eabi-objdump
+
 #if your compiler haven't size command left comment following line 
 CC-SIZE  := arm-none-eabi-size
+
 OPTIMIZE := -O0
 ARCH     := cortex-m0
+
+
 DEFINE   := USE_DISABLE_ISP
-DEFINE   += #USE_PRINTF
+DEFINE   += USE_PRINTF
 
 SRCDIR   := src
 OBJDIR   := Objects

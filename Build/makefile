@@ -51,13 +51,15 @@ LDFLAGS := -nostartfiles -mthumb -mcpu=$(ARCH) -lc -Wl,--gc-sections -Wl,-Map,$(
 IPATH  := -I$(SRCDIR)\include
 
 .PHONY: all
-all: $(OUTPUT).elf size
+all: $(OUTPUT).elf $(OUTPUT).lst size 
 
 .PHONY: clean
 clean:
-	del $(OBJECTS)
-	del $(OUTPUT).elf
-	del $(OUTPUT).map
+	del $(OBJECTS) 2>nul
+	del $(OBJECTS:.o=.o.lst) 2>nul
+	del $(OBJECTS:.o=.d) 2>nul
+	del $(OUTPUT).elf 2>nul
+	del $(OUTPUT).map 2>nul
 
 .PHONY: size
 ifneq "$(CC-SIZE)" ""
@@ -65,7 +67,10 @@ size: $(OUTPUT).elf
 	$(CC-SIZE) --format=barkley $(OUTPUT).elf
 else
 size:
-endif 
+endif
+
+$(OUTPUT).lst: $(OUTPUT).elf
+	$(CC-OBJDUMP) -h -S $< > $@ 
 
 # link comand
 $(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld
@@ -75,7 +80,7 @@ $(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld
 # With '-MD' we generate dependancies. Dependancies file are the same *.o file (same name, same path) but with *.d extension
 $(OBJECTS): $(OBJDIR)\\%.o: $(SRCDIR)\\%.c
 	@if not exist $(dir $@) mkdir $(dir $@)
-	$(CC) $(CFLAGS) $(IPATH) -MD -c $< -o $@
+	$(CC) $(CFLAGS) $(IPATH) -MD -c $< -Wa,-ahls=$@.lst -o $@ 
 	
 
 # Include depenencies. Include directive with '-' so don't generate error if some file is missing	
