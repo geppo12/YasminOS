@@ -70,6 +70,10 @@ typedef struct {
 } YOS_Mutex_t;
 
 void YOS_InitOs(void *taskMemory, void *taskTopMemory);
+void YOS_DisableIrq(void);
+void YOS_EnableIrq(void);
+void YOS_Lock(void);
+void YOS_Unlock(void);
 void YOS_Start(void);
 YOS_Task_t *YOS_AddTask(YOS_Routine_t,int);
 void YOS_MutexInit(YOS_Mutex_t *mutex);

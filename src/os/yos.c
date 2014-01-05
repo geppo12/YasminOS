@@ -44,6 +44,8 @@ static int sTaskNum;
 static YOS_TaskList_t sTaskList;				// taskList
 static YOS_Task_t *sCurrentTask;				// running task
 static YOS_Task_t *sLeavingTask;				// task leaving active status
+static int 		   sLockCount;					// scheduler lock counter;
+static int 		   sDisableIrqCount;
 
 // optimizer remove this function because C don't call it
 // is called in inline assembler only. So we disable optimizer
@@ -141,38 +143,12 @@ void getNextTask(void) {
 	sCurrentTask = taskDequeue(&sTaskList);
 }
 
-NAKED
-YOS_KERNEL
-OPTIMIZE(O0)
-void YOS_SvcIrq(void) {
-	asm volatile (
-		"movs	r2,#4				\t\n"
-		"mov 	r3,lr				\t\n"
-		"tst	r2,r3				\t\n"
-		"beq	1f					\t\n"
-		"mrs	r2,psp				\t\n"
-		"b		2f					\t\n"
-		"1:                         \t\n"
-		"mrs	r2,msp				\t\n"
-		"2:							\t\n"
-		"ldr	r3,[r2,#24]			\t\n"
-		"sub	r3,#2				\t\n"
-		"ldrb	r2,[r3]				\t\n"
-		"cmp	r2,#0				\t\n"
-		"bne	1f					\t\n"
-		"ldr	r2,=YOS_StartOsIrq	\t\n"
-		"bx		r2					\t\n"
-		"1:							\t\n"
-		"ldr	r3,=YOS_SvcDispatch	\t\n"
-		"bx		r3					\t\n"
-	);
-}
-
 // no startup, can grow
 // AAPCS use r0 = par1, r1 = par2, r2 = svcid
 // do not change order of parameter
+UNUSED
 YOS_KERNEL
-void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
+static void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
 			sCurrentTask->tSignal = 1;
@@ -231,7 +207,8 @@ void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 NAKED
 YOS_KERNEL
 OPTIMIZE(O1)
-void YOS_StartOsIrq(void) {
+// TODO: with O1 optimization and static specifier give error message. As workaround we remove static. Investigate in future.
+void startOsIrq(void) {
 	asm volatile("push {lr}");
 	// Start sys ticks
 	CTX_SYST->CSR |= 1;
@@ -240,6 +217,32 @@ void YOS_StartOsIrq(void) {
 	restore_context(sCurrentTask->tPsp << 2);
 	// start first task
 	asm volatile ("pop {pc}");
+}
+
+NAKED
+YOS_KERNEL
+void YOS_SvcIrq(void) {
+	asm volatile (
+		"movs	r2,#4				\t\n"
+		"mov 	r3,lr				\t\n"
+		"tst	r2,r3				\t\n"
+		"beq	1f					\t\n"
+		"mrs	r2,psp				\t\n"
+		"b		2f					\t\n"
+		"1:                         \t\n"
+		"mrs	r2,msp				\t\n"
+		"2:							\t\n"
+		"ldr	r3,[r2,#24]			\t\n"
+		"sub	r3,#2				\t\n"
+		"ldrb	r2,[r3]				\t\n"
+		"cmp	r2,#0				\t\n"
+		"bne	1f					\t\n"
+		"ldr	r2,=startOsIrq	    \t\n"
+		"bx		r2					\t\n"
+		"1:							\t\n"
+		"ldr	r3,=svcDispatch	    \t\n"
+		"bx		r3					\t\n"
+	);
 }
 
 YOS_KERNEL
@@ -257,38 +260,36 @@ YOS_KERNEL
 OPTIMIZE(O1)
 void YOS_SchedulerIrq(void) {
 	static DWORD psp;
-	// taskId = getNextTask();
-	// use inline asm to control register usage
-	asm volatile(
-			"push 	{r4,lr}			\t\n"
-			"bl		getNextTask		\t\n"
-	);
-	if (sCurrentTask != 0) {
-		resetSleepOnExit();
-		if (sCurrentTask != sLeavingTask) {
-			// new task running. do a context switch
-			// restore used regs
-			// gTaskList[sCurrentTask] = save_context();
-			asm volatile (
-				"pop	{r4}			\n"
-				"bl		save_context	\n"
-				"mov	%0,r0			\n"
-				:"=r"(psp)::"r0","r4"
-			);
-			// ** until here we MUST NOT touch r4-r11 **
-			// this could be null after resume from sleep
-			if (sLeavingTask != NULL)
-				sLeavingTask->tPsp = psp >> 2;
-			// must be the last operation before return
-			restore_context(sCurrentTask->tPsp << 2);
-			// trash away r4 on stack and exit loading pc
-			// ** return
-			asm volatile ("pop {pc}");
-			return;
+	asm volatile ("push {r4,lr}");
+	if (sLockCount == 0) {
+		getNextTask();
+		if (sCurrentTask != 0) {
+			resetSleepOnExit();
+			if (sCurrentTask != sLeavingTask) {
+				// new task running. do a context switch
+				// restore used regs
+				// gTaskList[sCurrentTask] = save_context();
+				asm volatile (
+					"pop	{r4}			\n"
+					"bl		save_context	\n"
+					"mov	%0,r0			\n"
+					:"=r"(psp)::"r0","r4"
+				);
+				// ** until here we MUST NOT touch r4-r11 **
+				// this could be null after resume from sleep
+				if (sLeavingTask != NULL)
+					sLeavingTask->tPsp = psp >> 2;
+				// must be the last operation before return
+				restore_context(sCurrentTask->tPsp << 2);
+				// trash away r4 on stack and exit loading pc
+				// ** return
+				asm volatile ("pop {pc}");
+				return;
+			}
+		} else {
+			// no task running go sleep when exit
+			setSleepOnExit();
 		}
-	} else {
-		// no task running go sleep when exit
-		setSleepOnExit();
 	}
 	asm volatile("pop {r4,pc}");
 }
@@ -340,6 +341,40 @@ void YOS_InitOs(void *taskMemory, void *taskTopMemory) {
 
 	// set PendSv ad lowest priority irq
 	CTX_SCB->SHPR3 = (3L<<22);
+}
+
+YOS_KERNEL
+void YOS_DisableIrq(void) {
+	if (sDisableIrqCount==0)
+		asm volatile ("CPSID I");
+	sDisableIrqCount++;
+}
+
+YOS_KERNEL
+void YOS_EnableIrq(void) {
+	if (sDisableIrqCount > 0)
+		sDisableIrqCount--;
+
+	if (sDisableIrqCount==0) {
+		asm volatile (
+			"CPSIE I	\n"
+			"ISB		\n"		// assure that pipeline is empty and irq can take pace after this istruction
+		);
+	}
+}
+
+YOS_KERNEL
+void YOS_Lock(void) {
+	YOS_DisableIrq();
+	sLockCount++;
+	YOS_EnableIrq();
+}
+
+YOS_KERNEL
+void YOS_Unlock(void) {
+	// no irq lock. If > 0 no context switch, if == 0 no operation
+	if (sLockCount > 0)
+		sLockCount--;
 }
 
 NAKED
