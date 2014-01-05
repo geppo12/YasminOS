@@ -37,25 +37,33 @@
 #include <yos.h>
 #include <debug.h>
 
-static YOS_Task_t *pTask1, *pTask2, *pTask3;
+//static YOS_Task_t *pTask1, *pTask2, *pTask3;
+static YOS_Mutex_t sMutex;
+
+void testFun() {
+	int i;
+	YOS_MutexAcquire(&sMutex);
+	for (i = 0; i < 1000000; i++) {
+		asm volatile("nop");
+	}
+	YOS_MutexRelease(&sMutex);
+}
 
 void task1(void) {
 	while(1) {
-		asm volatile("nop");
+		testFun();
 	}
 }
 
 void task2(void) {
 	while(1) {
-		asm volatile("nop");
+		testFun();
 	}
 }
 
 void task3(void) {
-	int i=0;
 	while(1) {
-		YOS_DbgPrintf("test %d\n",i++);
-		//asm volatile("nop");
+		testFun();
 	}
 }
 
@@ -66,11 +74,9 @@ int main(void) {
 	extern DWORD _ebss;
 	// TODO sistemare memoria
 	YOS_InitOs(&_ebss,&_stack);
-	pTask1 = YOS_AddTask(task1,128);
-	pTask2 = YOS_AddTask(task2,128);
-	pTask3 = YOS_AddTask(task3,256);
+	YOS_AddTask(task1,128);
+	YOS_AddTask(task2,128);
+	YOS_AddTask(task3,256);
+	YOS_MutexInit(&sMutex);
 	YOS_Start();
 }
-
-
-

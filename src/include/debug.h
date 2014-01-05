@@ -31,6 +31,12 @@
 #ifndef DEBUG_H_
 #define DEBUG_H_
 
+#ifdef USE_PRINTF
+#define YOS_DBG_PRINTF(a,...) YOS_DbgPrintf(a,__VA_ARGS__)
+#else
+#define YOS_DBG_PRINTF(a,...) do { } while (0)
+#endif
+
 void YOS_DbgPutc(char c);
 void YOS_DbgPuts(char *s);
 #ifdef USE_PRINTF

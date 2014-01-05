@@ -42,6 +42,9 @@ enum {
 	DO_WAIT = 1,		// value 0 is reserved for start
 	DO_SIGNAL,
 	DO_RESCHEDULE,
+	DO_QUEUE_MUTEX,
+	DO_UNQUEUE_MUTEX,
+	DO_CHECK_MUTEX
 };
 
 // SYSCALL are like function AAPCS use R0-R3 as scratch register so sw need to inform compiler

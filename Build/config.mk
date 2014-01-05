@@ -45,7 +45,7 @@ ARCH     := cortex-m0
 
 
 DEFINE   := USE_DISABLE_ISP
-DEFINE   += USE_PRINTF
+#DEFINE   += USE_PRINTF
 
 SRCDIR   := src
 OBJDIR   := Objects

@@ -31,6 +31,7 @@
 #ifndef YOS_H_
 #define YOS_H_
 
+#include <stdbool.h>
 #include <types.h>
 #include <cortex_m0.h>
 #include <syscall.h>
@@ -53,12 +54,27 @@ typedef struct YOS_Task_s YOS_Task_t;
 
 struct YOS_Task_s {
 	YOS_Task_t *tNext;	// must be first member of structure
-	DWORD	tPsp:31;
-	DWORD	tWaiting:1;
+	DWORD	tPsp:30;
+	DWORD	tWait:1;
+	DWORD	tSignal:1;
 };
+
+typedef struct {
+	YOS_Task_t *tlHead;
+	YOS_Task_t *tlTail;
+} YOS_TaskList_t;
+
+typedef struct {
+	YOS_Task_t *mOwner;
+	YOS_TaskList_t mTaskQueue;
+} YOS_Mutex_t;
 
 void YOS_InitOs(void *taskMemory, void *taskTopMemory);
 void YOS_Start(void);
 YOS_Task_t *YOS_AddTask(YOS_Routine_t,int);
+void YOS_MutexInit(YOS_Mutex_t *mutex);
+bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex);
+void YOS_MutexAcquire(YOS_Mutex_t *mutex);
+void YOS_MutexRelease(YOS_Mutex_t *mutex);
 
 #endif /* YOS_H_ */

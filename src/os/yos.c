@@ -37,17 +37,13 @@
 
 #define YOS_KERNEL	SECTION(".yos.kernel")
 
-typedef struct {
-	YOS_Task_t *tlHead;
-	YOS_Task_t *tlTail;
-} YOS_TaskList_t;
-
 static BYTE *sTaskMemory;
 static BYTE *sTaskMemoryLimit;
 static DWORD sSystemTicks;
 static int sTaskNum;
 static YOS_TaskList_t sTaskList;				// taskList
 static YOS_Task_t *sCurrentTask;				// running task
+static YOS_Task_t *sLeavingTask;				// task leaving active status
 
 // optimizer remove this function because C don't call it
 // is called in inline assembler only. So we disable optimizer
@@ -115,37 +111,34 @@ static void resetSleepOnExit(void) {
 }
 
 YOS_KERNEL
-static void taskEnqueue(YOS_Task_t *task) {
-	if (sTaskList.tlHead == 0) {
-		sTaskList.tlHead = task;
-		sTaskList.tlTail = task;
+static void taskEnqueue(YOS_TaskList_t *list, YOS_Task_t *task) {
+	if (list->tlHead == 0) {
+		list->tlHead = task;
+		list->tlTail = task;
 	} else {
-		sTaskList.tlTail->tNext = task;
-		sTaskList.tlTail = task;
+		list->tlTail->tNext = task;
+		list->tlTail = task;
 	}
 	task->tNext = 0L;
 }
 
 YOS_KERNEL
-static YOS_Task_t *taskDequeue(void) {
+static YOS_Task_t *taskDequeue(YOS_TaskList_t *list) {
 	YOS_Task_t *task;
-	task = sTaskList.tlHead;
+	task = list->tlHead;
 	if (task != 0)
-		sTaskList.tlHead = task->tNext;
+		list->tlHead = task->tNext;
 	// warn if sTaskList.tlHead == 0 tail remain dirty
 	return task;
 }
 
-
+// TODO change is not good programming rule use a function to change global variable
 YOS_KERNEL
-YOS_Task_t *getNextTask(void) {
-	register YOS_Task_t *task = 0L;
-
-	if (sCurrentTask->tWaiting == 0)
-		taskEnqueue(sCurrentTask);
-	task = taskDequeue();
-
-	return task;
+void getNextTask(void) {
+	if (sCurrentTask->tWait == 0)
+		taskEnqueue(&sTaskList,sCurrentTask);
+	sLeavingTask = sCurrentTask;
+	sCurrentTask = taskDequeue(&sTaskList);
 }
 
 NAKED
@@ -182,17 +175,50 @@ YOS_KERNEL
 void YOS_SvcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
-			sCurrentTask->tWaiting = 1;
+			sCurrentTask->tSignal = 1;
+			sCurrentTask->tWait   = 1;
 			break;
 
 		case DO_SIGNAL:
-			((YOS_Task_t *)par1)->tWaiting = 0;
-			taskEnqueue((YOS_Task_t *)par1);
+			// TODO consider isr signal 
+			if (((YOS_Task_t *)par1)->tSignal == 1) {
+				((YOS_Task_t *)par1)->tSignal = 0;
+				((YOS_Task_t *)par1)->tWait   = 0;
+				taskEnqueue(&sTaskList,(YOS_Task_t *)par1);
+			}
 			break;
 
 		case DO_RESCHEDULE:
 			break;
 
+		case DO_QUEUE_MUTEX:
+			{
+				YOS_Mutex_t *m = (YOS_Mutex_t *)par1;
+				if (m->mOwner == NULL) {
+					m->mOwner = sCurrentTask;
+				} else {
+					taskEnqueue(&m->mTaskQueue,sCurrentTask);
+					sCurrentTask->tWait = 1;
+				}
+			}
+			break;
+
+		case DO_UNQUEUE_MUTEX:
+			{
+				YOS_Mutex_t *m = (YOS_Mutex_t *)par1;
+				// next task run
+				m->mOwner = taskDequeue(&m->mTaskQueue);
+				// mark task ready
+				m->mOwner->tWait = 0;
+				// add task in ready queue
+				taskEnqueue(&sTaskList,m->mOwner);
+			}
+			break;
+
+		case DO_CHECK_MUTEX:
+			*((bool *)par2) = (((YOS_Mutex_t *)par1)->mOwner != 0);
+			break;
+			
 		default:
 			ASSERT(false);
 			break;
@@ -210,8 +236,8 @@ void YOS_StartOsIrq(void) {
 	// Start sys ticks
 	CTX_SYST->CSR |= 1;
 	// restore context first task
-	sCurrentTask = taskDequeue();
-	restore_context(sCurrentTask->tPsp << 1);
+	sCurrentTask = taskDequeue(&sTaskList);
+	restore_context(sCurrentTask->tPsp << 2);
 	// start first task
 	asm volatile ("pop {pc}");
 }
@@ -225,23 +251,21 @@ void YOS_SystemTickIrq(void) {
 // naked: last istruction MUST BE only pop {pc}
 // force optimization: when change optimization level in makefile code don't change
 // use O1 optimization because we don't want inlining
+// TODO change: idea compiler save r4-r11 if used in a function so put scheduling logic in not naked function
 NAKED
 YOS_KERNEL
 OPTIMIZE(O1)
 void YOS_SchedulerIrq(void) {
-	static YOS_Task_t *task;
 	static DWORD psp;
 	// taskId = getNextTask();
 	// use inline asm to control register usage
 	asm volatile(
 			"push 	{r4,lr}			\t\n"
 			"bl		getNextTask		\t\n"
-			"mov	%0,r0			\t\n"
-			:"=r"(task)::"r0","r4"
 	);
-	if (task != 0) {
+	if (sCurrentTask != 0) {
 		resetSleepOnExit();
-		if (task != sCurrentTask) {
+		if (sCurrentTask != sLeavingTask) {
 			// new task running. do a context switch
 			// restore used regs
 			// gTaskList[sCurrentTask] = save_context();
@@ -252,10 +276,11 @@ void YOS_SchedulerIrq(void) {
 				:"=r"(psp)::"r0","r4"
 			);
 			// ** until here we MUST NOT touch r4-r11 **
-			sCurrentTask->tPsp = psp >> 1;
-			sCurrentTask = task;
+			// this could be null after resume from sleep
+			if (sLeavingTask != NULL)
+				sLeavingTask->tPsp = psp >> 2;
 			// must be the last operation before return
-			restore_context(task->tPsp << 1);
+			restore_context(sCurrentTask->tPsp << 2);
 			// trash away r4 on stack and exit loading pc
 			// ** return
 			asm volatile ("pop {pc}");
@@ -294,9 +319,10 @@ YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 		newTaskStack[14]= (DWORD)code;
 		// force T bit in xPSR (without it we have and hard fault)
 		newTaskStack[15] = 0x1000000;
-		newTask->tPsp = ((DWORD)newTaskStack >> 1);
-		newTask->tWaiting = 0;
-		taskEnqueue(newTask);
+		newTask->tPsp = ((DWORD)newTaskStack >> 2);
+		newTask->tSignal = 0;
+		newTask->tWait   = 0;
+		taskEnqueue(&sTaskList,newTask);
 		sTaskNum++;
 	}
 	return newTask;
@@ -330,4 +356,26 @@ void YOS_Start(void) {
 		"msr control,r0		\n"
 		"svc #0				\n"
 	);
+}
+YOS_KERNEL
+void YOS_MutexInit(YOS_Mutex_t *mutex) {
+	mutex->mOwner = 0;
+	mutex->mTaskQueue.tlHead = 0;
+}
+
+YOS_KERNEL
+bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex) {
+	bool b;
+	SYS_CALL2(CHECK_MUTEX,mutex,&b);
+	return b;
+}
+
+YOS_KERNEL
+void YOS_MutexAcquire(YOS_Mutex_t *mutex) {
+	SYS_CALL1(QUEUE_MUTEX,mutex);
+}
+
+YOS_KERNEL
+void YOS_MutexRelease(YOS_Mutex_t *mutex) {
+	SYS_CALL1(UNQUEUE_MUTEX,mutex);
 }
