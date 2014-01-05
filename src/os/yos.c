@@ -155,6 +155,9 @@ static void getNextTask(void) {
 // no startup, can grow
 // AAPCS use r0 = par1, r1 = par2, r2 = svcid
 // do not change order of parameter
+// ================================================
+// NOTE: svc used in IRQ cannot change sCurrentTask
+// ================================================
 UNUSED
 YOS_KERNEL
 // TODO: with O1 optimization and static specifier give error message. As workaround we remove static. Investigate in future.
@@ -302,6 +305,7 @@ void YOS_SystemTickIrq(void) {
 // naked: last istruction MUST BE only pop {pc}
 // force optimization: when change optimization level in makefile code don't change
 // use O1 optimization because we don't want inlining
+// TODO check usage of sCurrentTask during irq
 // TODO change: idea compiler save r4-r11 if used in a function so put scheduling logic in not naked function
 NAKED
 YOS_KERNEL
@@ -310,7 +314,12 @@ void YOS_SchedulerIrq(void) {
 	static DWORD psp;
 	asm volatile ("push {r4,lr}");
 	if (sLockCount ==0) {
+		// disable high level irq
+		asm volatile ("CPSID I");
+		// update current task
 		getNextTask();
+		// re-enable high level irq
+		asm volatile ("CPSIE I");
 		if (sCurrentTask != 0) {
 			resetSleepOnExit();
 			if (sCurrentTask != sLeavingTask) {
