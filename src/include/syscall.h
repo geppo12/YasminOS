@@ -42,6 +42,9 @@ enum {
 	DO_WAIT = 1,		// value 0 is reserved for start
 	DO_SIGNAL,
 	DO_RESCHEDULE,
+	DO_SIGNAL_EVENT,
+	DO_WAIT_EVENT,
+	DO_RESUME_EVENT,	// called before wait exit
 	DO_QUEUE_MUTEX,
 	DO_UNQUEUE_MUTEX,
 	DO_CHECK_MUTEX

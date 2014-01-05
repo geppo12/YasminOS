@@ -38,32 +38,27 @@
 #include <debug.h>
 
 //static YOS_Task_t *pTask1, *pTask2, *pTask3;
-static YOS_Mutex_t sMutex;
+static YOS_Event_t	sEvent;
 
-void testFun() {
-	int i;
-	YOS_MutexAcquire(&sMutex);
-	for (i = 0; i < 1000000; i++) {
-		asm volatile("nop");
-	}
-	YOS_MutexRelease(&sMutex);
-}
 
 void task1(void) {
+	int i;
 	while(1) {
-		testFun();
+		YOS_EventSignal(&sEvent,0);
+		for (i = 0; i <100000; i++);
 	}
 }
 
 void task2(void) {
 	while(1) {
-		testFun();
+		asm volatile("nop");
 	}
 }
 
 void task3(void) {
 	while(1) {
-		testFun();
+		YOS_EventWait(&sEvent);
+		YOS_DbgPuts("go on");
 	}
 }
 
@@ -77,6 +72,6 @@ int main(void) {
 	YOS_AddTask(task1,128);
 	YOS_AddTask(task2,128);
 	YOS_AddTask(task3,256);
-	YOS_MutexInit(&sMutex);
+	YOS_EventInit(&sEvent);
 	YOS_Start();
 }

@@ -60,6 +60,11 @@ typedef struct {
 	YOS_TaskList_t mTaskQueue;
 } YOS_Mutex_t;
 
+typedef struct {
+	DWORD	eFlagSet;
+	YOS_TaskList_t eTaskQueue;
+} YOS_Event_t;
+
 void YOS_InitOs(void *taskMemory, void *taskTopMemory);
 void YOS_DisableIrq(void);
 void YOS_EnableIrq(void);
@@ -71,5 +76,9 @@ void YOS_MutexInit(YOS_Mutex_t *mutex);
 bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex);
 void YOS_MutexAcquire(YOS_Mutex_t *mutex);
 void YOS_MutexRelease(YOS_Mutex_t *mutex);
+void YOS_EventInit(YOS_Event_t *);
+bool YOS_EventPending(YOS_Event_t *event);
+DWORD YOS_EventWait(YOS_Event_t *);
+void YOS_EventSignal(YOS_Event_t *, int flag);
 
 #endif /* YOS_H_ */

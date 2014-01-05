@@ -37,6 +37,8 @@
 
 #define YOS_KERNEL	SECTION(".yos.kernel")
 
+// todo insert function depandant section to reduce code size
+
 static BYTE *sTaskMemory;
 static BYTE *sTaskMemoryLimit;
 static DWORD sSystemTicks;
@@ -141,8 +143,9 @@ static YOS_Task_t *taskDequeue(YOS_TaskList_t *list) {
 }
 
 // TODO change is not good programming rule use a function to change global variable
+UNUSED
 YOS_KERNEL
-void getNextTask(void) {
+static void getNextTask(void) {
 	if (sCurrentTask->tWait == 0)
 		taskEnqueue(&sTaskList,sCurrentTask);
 	sLeavingTask = sCurrentTask;
@@ -176,6 +179,39 @@ void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 			performReschedule();
 			break;
 
+		case DO_SIGNAL_EVENT:
+			{
+				YOS_Event_t *e = (YOS_Event_t *)par1;
+				YOS_Task_t *task;
+				e->eFlagSet |= (1<<(int)par2);
+				task = taskDequeue(&e->eTaskQueue);
+				if (task != NULL) {
+					task->tWait = 0;
+					taskEnqueue(&sTaskList,task);
+				}
+			}
+			break;
+
+		case DO_WAIT_EVENT:
+			{
+				YOS_Event_t *e = (YOS_Event_t *)par1;
+				if (e->eFlagSet == 0) {
+					sCurrentTask->tWait = 1;
+					taskEnqueue(&e->eTaskQueue,sCurrentTask);
+					performReschedule();
+				}
+			}
+			break;
+
+		case DO_RESUME_EVENT:
+			{
+				YOS_Event_t *e = (YOS_Event_t *)par1;
+				DWORD *flags = (DWORD *)par2;
+				*flags = e->eFlagSet;
+				e->eFlagSet = 0;
+			}
+			break;
+
 		case DO_QUEUE_MUTEX:
 			{
 				YOS_Mutex_t *m = (YOS_Mutex_t *)par1;
@@ -199,7 +235,6 @@ void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 				// add task in ready queue
 				taskEnqueue(&sTaskList,m->mOwner);
 				performReschedule();
-
 			}
 			break;
 
@@ -216,6 +251,7 @@ void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 // naked: last istruction MUST BE only pop {pc}
 // force optimization: when change optimization level in makefile code don't change
 NAKED
+UNUSED
 YOS_KERNEL
 OPTIMIZE(O1)
 // TODO: with O1 optimization and static specifier give error message. As workaround we remove static. Investigate in future.
@@ -273,7 +309,7 @@ OPTIMIZE(O1)
 void YOS_SchedulerIrq(void) {
 	static DWORD psp;
 	asm volatile ("push {r4,lr}");
-	if (sLockCount == 0) {
+	if (sLockCount ==0) {
 		getNextTask();
 		if (sCurrentTask != 0) {
 			resetSleepOnExit();
@@ -426,4 +462,30 @@ void YOS_MutexAcquire(YOS_Mutex_t *mutex) {
 YOS_KERNEL
 void YOS_MutexRelease(YOS_Mutex_t *mutex) {
 	SYS_CALL1(UNQUEUE_MUTEX,mutex);
+}
+
+YOS_KERNEL
+void YOS_EventInit(YOS_Event_t *event) {
+	event->eFlagSet  = 0;
+	event->eTaskQueue.tlHead = 0;
+}
+
+YOS_KERNEL
+bool YOS_EventPending(YOS_Event_t *event) {
+	return 	(event->eTaskQueue.tlHead != 0);
+}
+
+YOS_KERNEL
+DWORD YOS_EventWait(YOS_Event_t *event) {
+	DWORD flags;
+	// this put task in wait state
+	SYS_CALL1(WAIT_EVENT,event);
+	// when we get up we finalize event waiting
+	SYS_CALL2(RESUME_EVENT,event,&flags);
+	return flags;
+}
+
+YOS_KERNEL
+void YOS_EventSignal(YOS_Event_t *event, int flag) {
+	SYS_CALL2(SIGNAL_EVENT,event,flag);
 }
