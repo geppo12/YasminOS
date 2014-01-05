@@ -41,15 +41,6 @@
 
 typedef void (*YOS_Routine_t)(void);
 
-// exit irq macro. Set pending bit if return goes back in thread mode
-#define EXIT_IRQ()									\
-	do {											\
-		register DWORD reg;							\
-		asm volatile ("mov %0,lr":"=r"(reg));		\
-		if ((reg & 4) != 0)							\
-			CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet; \
-	} while(0)
-
 typedef struct YOS_Task_s YOS_Task_t;
 
 struct YOS_Task_s {

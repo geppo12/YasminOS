@@ -95,6 +95,12 @@ static void restore_context(register DWORD psp) {
 	);
 }
 
+// if need reschedule set pending irq bit
+YOS_KERNEL
+static void performReschedule(void) {
+	CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet;
+}
+
 YOS_KERNEL
 static void setSleepOnExit(void) {
 	// set sleep on exit
@@ -148,11 +154,13 @@ void getNextTask(void) {
 // do not change order of parameter
 UNUSED
 YOS_KERNEL
-static void svcDispatch(DWORD par1, DWORD par2, int svcid) {
+// TODO: with O1 optimization and static specifier give error message. As workaround we remove static. Investigate in future.
+void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
 		case DO_WAIT:
 			sCurrentTask->tSignal = 1;
 			sCurrentTask->tWait   = 1;
+			performReschedule();
 			break;
 
 		case DO_SIGNAL:
@@ -165,6 +173,7 @@ static void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 			break;
 
 		case DO_RESCHEDULE:
+			performReschedule();
 			break;
 
 		case DO_QUEUE_MUTEX:
@@ -175,6 +184,7 @@ static void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 				} else {
 					taskEnqueue(&m->mTaskQueue,sCurrentTask);
 					sCurrentTask->tWait = 1;
+					performReschedule();
 				}
 			}
 			break;
@@ -188,6 +198,8 @@ static void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 				m->mOwner->tWait = 0;
 				// add task in ready queue
 				taskEnqueue(&sTaskList,m->mOwner);
+				performReschedule();
+
 			}
 			break;
 
@@ -199,7 +211,6 @@ static void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 			ASSERT(false);
 			break;
 	}
-	EXIT_IRQ();
 }
 
 // naked: last istruction MUST BE only pop {pc}
@@ -245,10 +256,11 @@ void YOS_SvcIrq(void) {
 	);
 }
 
+// should be be priority of PendSV so connot interrupt it
 YOS_KERNEL
 void YOS_SystemTickIrq(void) {
 	sSystemTicks++;
-	EXIT_IRQ();
+	performReschedule();
 }
 
 // naked: last istruction MUST BE only pop {pc}
@@ -339,8 +351,9 @@ void YOS_InitOs(void *taskMemory, void *taskTopMemory) {
 	CTX_SYST->CVR = 0;
 	CTX_SYST->CSR = 6;
 
-	// set PendSv ad lowest priority irq
-	CTX_SCB->SHPR3 = (3L<<22);
+	// set PendSv and SysTick lowest irq (so cannot interrupt each other)
+	// if standard irq duration is longer than systick period system time cannot be precise.
+	CTX_SCB->SHPR3 = (3L<<22)|(3L<<30);
 }
 
 YOS_KERNEL
