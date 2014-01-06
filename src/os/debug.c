@@ -27,7 +27,6 @@
 	 You should have received a copy of the GNU General Public License
 	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
 */
-
 #include <types.h>
 #include <debug.h>
 #include <stdbool.h>
@@ -71,7 +70,11 @@ static void print_i(DWORD data, int radix, int len) {
 }
 #endif
 
-void YOS_DbgPutc(char c) {
+// we delcare here and alias for YOS_DbgPutc
+void YOS_DbgPutc(char c) ALIAS(YOS_T32Putc);
+
+// and we implement this alias
+void YOS_T32Putc(char c) {
 	while(sOutData != 0);
 	sOutData = (BYTE)c;
 }
