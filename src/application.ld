@@ -56,7 +56,7 @@ SECTIONS
   .text : 
   {
   	_text = .;
-	*(.yos.kernel)
+	*(.yos.kernel.*)
     *(.text.*)
     *(.rodata.*)
     *(.glue_7)

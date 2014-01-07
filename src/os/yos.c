@@ -35,7 +35,7 @@
 #include <vectors.h>
 #include <yos.h>
 
-#define YOS_KERNEL	SECTION(".yos.kernel")
+#define YOS_KERNEL(a)	SECTION(".yos.kernel." #a)
 
 // todo insert function depandant section to reduce code size
 
@@ -57,8 +57,8 @@ static int 		   sDisableIrqCount;
 //
 NAKED
 UNUSED
-YOS_KERNEL
 OPTIMIZE(O0)
+YOS_KERNEL(save_context)
 static DWORD save_context(void) {
 	asm volatile(
 			"mrs   r0,psp		\t\n"
@@ -78,8 +78,8 @@ static DWORD save_context(void) {
 }
 
 NAKED
-YOS_KERNEL
 OPTIMIZE(O0)
+YOS_KERNEL(restore_context)
 static void restore_context(register DWORD psp) {
 	asm volatile(
 			"mov   r1,r0        \t\n"
@@ -98,12 +98,12 @@ static void restore_context(register DWORD psp) {
 }
 
 // if need reschedule set pending irq bit
-YOS_KERNEL
+YOS_KERNEL(performReschedule)
 static void performReschedule(void) {
 	CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet;
 }
 
-YOS_KERNEL
+YOS_KERNEL(setSleepOnExit)
 static void setSleepOnExit(void) {
 	// set sleep on exit
 	CTX_SCB->SCR   |= CTX_SCBSCR_SleepOnExit;
@@ -112,7 +112,7 @@ static void setSleepOnExit(void) {
 
 }
 
-YOS_KERNEL
+YOS_KERNEL(resetSleepOnExit)
 static void resetSleepOnExit(void) {
 	// disable sleep on exit
 	CTX_SCB->SCR   &= ~CTX_SCBSCR_SleepOnExit;
@@ -120,7 +120,7 @@ static void resetSleepOnExit(void) {
 	CTX_SYST->CSR  |= 1;
 }
 
-YOS_KERNEL
+YOS_KERNEL(taskEnqueue)
 static void taskEnqueue(YOS_TaskList_t *list, YOS_Task_t *task) {
 	if (list->tlHead == 0) {
 		list->tlHead = task;
@@ -132,7 +132,7 @@ static void taskEnqueue(YOS_TaskList_t *list, YOS_Task_t *task) {
 	task->tNext = 0L;
 }
 
-YOS_KERNEL
+YOS_KERNEL(taskDequeue)
 static YOS_Task_t *taskDequeue(YOS_TaskList_t *list) {
 	YOS_Task_t *task;
 	task = list->tlHead;
@@ -144,7 +144,7 @@ static YOS_Task_t *taskDequeue(YOS_TaskList_t *list) {
 
 // TODO change is not good programming rule use a function to change global variable
 UNUSED
-YOS_KERNEL
+YOS_KERNEL(getNextTask)
 static void getNextTask(void) {
 	if (sCurrentTask->tWait == 0)
 		taskEnqueue(&sTaskList,sCurrentTask);
@@ -159,7 +159,7 @@ static void getNextTask(void) {
 // NOTE: svc used in IRQ cannot change sCurrentTask
 // ================================================
 UNUSED
-YOS_KERNEL
+YOS_KERNEL(svcDispatch)
 // TODO: with O1 optimization and static specifier give error message. As workaround we remove static. Investigate in future.
 void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 	switch(svcid) {
@@ -255,8 +255,8 @@ void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 // force optimization: when change optimization level in makefile code don't change
 NAKED
 UNUSED
-YOS_KERNEL
 OPTIMIZE(O1)
+YOS_KERNEL(startOsIrq)
 // TODO: with O1 optimization and static specifier give error message. As workaround we remove static. Investigate in future.
 void startOsIrq(void) {
 	asm volatile("push {lr}");
@@ -270,7 +270,7 @@ void startOsIrq(void) {
 }
 
 NAKED
-YOS_KERNEL
+YOS_KERNEL(YOS_SvcIrq)
 void YOS_SvcIrq(void) {
 	asm volatile (
 		"movs	r2,#4				\t\n"
@@ -296,7 +296,7 @@ void YOS_SvcIrq(void) {
 }
 
 // should be be priority of PendSV so connot interrupt it
-YOS_KERNEL
+YOS_KERNEL(YOS_SystemTickIrq)
 void YOS_SystemTickIrq(void) {
 	sSystemTicks++;
 	performReschedule();
@@ -308,8 +308,8 @@ void YOS_SystemTickIrq(void) {
 // TODO check usage of sCurrentTask during irq
 // TODO change: idea compiler save r4-r11 if used in a function so put scheduling logic in not naked function
 NAKED
-YOS_KERNEL
 OPTIMIZE(O1)
+YOS_KERNEL(YOS_SchedulerIrq)
 void YOS_SchedulerIrq(void) {
 	static DWORD psp;
 	asm volatile ("push {r4,lr}");
@@ -351,7 +351,7 @@ void YOS_SchedulerIrq(void) {
 	asm volatile("pop {r4,pc}");
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_AddTask)
 YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	register int i;
 	YOS_Task_t *newTask = 0L;
@@ -386,7 +386,7 @@ YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
 	return newTask;
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_InitOs)
 void YOS_InitOs(void *taskMemory, void *taskTopMemory) {
 	// stack memory is their stack. We start form top and decrease stack every time we add a new task
 	sTaskMemory = (BYTE *)taskTopMemory;
@@ -401,14 +401,14 @@ void YOS_InitOs(void *taskMemory, void *taskTopMemory) {
 	CTX_SCB->SHPR3 = (3L<<22)|(3L<<30);
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_DisableIrq)
 void YOS_DisableIrq(void) {
 	if (sDisableIrqCount==0)
 		asm volatile ("CPSID I");
 	sDisableIrqCount++;
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_EnableIrq)
 void YOS_EnableIrq(void) {
 	if (sDisableIrqCount > 0)
 		sDisableIrqCount--;
@@ -421,14 +421,14 @@ void YOS_EnableIrq(void) {
 	}
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_Lock)
 void YOS_Lock(void) {
 	YOS_DisableIrq();
 	sLockCount++;
 	YOS_EnableIrq();
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_Unlock)
 void YOS_Unlock(void) {
 	// no irq lock. If > 0 no context switch, if == 0 no operation
 	if (sLockCount > 0)
@@ -436,8 +436,8 @@ void YOS_Unlock(void) {
 }
 
 NAKED
-YOS_KERNEL
 OPTIMIZE(O0)
+YOS_KERNEL(YOS_Start)
 void YOS_Start(void) {
 	// Reset stack. Set processor stack
 	asm volatile (
@@ -450,41 +450,42 @@ void YOS_Start(void) {
 		"svc #0				\n"
 	);
 }
-YOS_KERNEL
+
+YOS_KERNEL(YOS_MutexInit)
 void YOS_MutexInit(YOS_Mutex_t *mutex) {
 	mutex->mOwner = 0;
 	mutex->mTaskQueue.tlHead = 0;
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_MutexTryAcquire)
 bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex) {
 	bool b;
 	SYS_CALL2(CHECK_MUTEX,mutex,&b);
 	return b;
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_MutexAcquire)
 void YOS_MutexAcquire(YOS_Mutex_t *mutex) {
 	SYS_CALL1(QUEUE_MUTEX,mutex);
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_MutexRelease)
 void YOS_MutexRelease(YOS_Mutex_t *mutex) {
 	SYS_CALL1(UNQUEUE_MUTEX,mutex);
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_EventInit)
 void YOS_EventInit(YOS_Event_t *event) {
 	event->eFlagSet  = 0;
 	event->eTaskQueue.tlHead = 0;
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_EventPending)
 bool YOS_EventPending(YOS_Event_t *event) {
 	return 	(event->eTaskQueue.tlHead != 0);
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_EventWait)
 DWORD YOS_EventWait(YOS_Event_t *event) {
 	DWORD flags;
 	// this put task in wait state
@@ -494,7 +495,7 @@ DWORD YOS_EventWait(YOS_Event_t *event) {
 	return flags;
 }
 
-YOS_KERNEL
+YOS_KERNEL(YOS_EventSignal)
 void YOS_EventSignal(YOS_Event_t *event, int flag) {
 	SYS_CALL2(SIGNAL_EVENT,event,flag);
 }
