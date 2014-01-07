@@ -45,6 +45,7 @@ ARCH     := cortex-m0
 
 
 DEFINE   := USE_DISABLE_ISP
+DEFINE   += USE_ASSERT
 #DEFINE   += USE_PRINTF
 
 SRCDIR   := src

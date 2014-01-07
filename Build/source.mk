@@ -36,3 +36,4 @@ SRCS    := startup.c
 SRCS    += main.c 
 SRCS    += os\yos.c
 SRCS    += os\debug.c
+SRCS    += os\assert.c

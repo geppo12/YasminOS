@@ -28,28 +28,20 @@
 	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef ASSERT_H_
-#define ASSERT_H_
+#include <types.h>
+#include <assert.h>
+#include <yos.h>
+#include <debug.h>
 
-#if defined(USE_ASSERT) && !defined(NDEBUG)
-/* trick: double macro expansion convert __LINE__ to string at compile time so we don't need code
-   for itoa when we don't use YOS_DbgPrintf
-   detail:
-   first expansion (ASSERT_STR) convert __LINE__ to an integer
-   second expansion (ASSERT_STR2) convert integer to string */
-#define ASSERT_STR2(a) #a
-#define ASSERT_STR(a) ASSERT_STR2(a)
-// no comma: after expansion are all constant sting so are merged in a single string
-#define ASSERT(x)   do { if (!x) YOS_AssertFail("ASSERT FAIL: " ASSERT_STR(x) " " __FILE__ " " ASSERT_STR(__LINE__) "\n"); } while(0)
-#else
-#define ASSERT(x)	do {} while(0)
-#endif
+YOS_AssertSignal_t gYosAssertSignal = NULL;
 
-typedef void (*YOS_AssertSignal_t)(void);
-// user can set this pointer to function to signal assert failure condition
-// we use global var because take less code
-extern YOS_AssertSignal_t gYosAssertSignal;
+void YOS_AssertFail(char *conditionStr) {
+	// first of all lock irq so system is locked
+	YOS_DisableIrq();
+	// user level signal (not for debugging)
+	if (gYosAssertSignal != NULL)
+		(*gYosAssertSignal)();
+	YOS_DbgPuts(conditionStr);
+	asm volatile("bkpt");
+}
 
-void YOS_AssertFail(char *conditionStr);
-
-#endif /* ASSERT_H_ */

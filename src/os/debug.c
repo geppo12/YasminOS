@@ -70,18 +70,25 @@ static void print_i(DWORD data, int radix, int len) {
 }
 #endif
 
-// we delcare here and alias for YOS_DbgPutc
+// we declare here and alias for YOS_DbgPutc
 void YOS_DbgPutc(char c) ALIAS(YOS_T32Putc);
 
 // and we implement this alias
 void YOS_T32Putc(char c) {
-	while(sOutData != 0);
-	sOutData = (BYTE)c;
+	static BYTE termEnabled = 0;
+	if (termEnabled != 0) {
+		while(sOutData != 0);
+		sOutData = (BYTE)c;
+	}
 }
 
 void YOS_DbgPuts(char *s) {
-	while (*s != 0)
+	while (*s != 0) {
+		if (*s == '\n')
+			YOS_DbgPutc('\r');
+
 		YOS_DbgPutc(*s++);
+	}
 }
 
 #ifdef USE_PRINTF
