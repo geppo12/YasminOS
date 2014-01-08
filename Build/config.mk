@@ -40,14 +40,37 @@ CC-OBJDUMP := arm-none-eabi-objdump
 #if your compiler haven't size command left comment following line 
 CC-SIZE  := arm-none-eabi-size
 
-OPTIMIZE := -O0
-ARCH     := cortex-m0
+OPTIMIZE := none
 
+CPU      := cortex-m3
 
+#########################
+# PLATFORM FEATURE ENABLE
+#########################
+# we have two macro: 
+# CPUNAME = exact cpu name
+# CPUFAMILY = family of cpu form CPUNAME derive
+# use these macro activate platform feature
+# To use thsi feature CPUFAMILY is mandatory and 
+# CPUNAME is optional   
+#
+# SUPPORTED FAMILY 
+# mb9bf500
+#
+# SUPPORTED NAME
+# none, leave blank
+
+CPUFAMILY  := mb9bf500
+CPUNAME    :=
+
+# custom linker script. Leave empty for default 
+LDFILE   := 
+
+# option define 
 DEFINE   := USE_DISABLE_ISP
 DEFINE   += USE_ASSERT
 #DEFINE   += USE_PRINTF
 
-SRCDIR   := src
+SRCDIR   := Src
 OBJDIR   := Objects
 

@@ -60,6 +60,8 @@ UNUSED
 OPTIMIZE(O0)
 YOS_KERNEL(save_context)
 static DWORD save_context(void) {
+// aerchitecture are mutually exclusive
+#ifdef __ARCH_V6M__
 	asm volatile(
 			"mrs   r0,psp		\t\n"
 			"sub   r0,#0x20		\t\n"
@@ -73,6 +75,17 @@ static DWORD save_context(void) {
 			"mrs   r0,psp		\t\n" // return correct value of psp
 			"bx    lr           \t\n" // return
 	);
+#elif defined(__ARCH_V7M__)
+	asm volatile(
+			"mrs   r0,psp		\n"
+			"stmdb r0!,{r4-r11} \n"
+			"msr   psp,r0       \n"
+			"bx    lr           \n"
+	);
+#else
+#error "unknown architecture"
+#endif
+
 	// suppress warning
 	return 0;
 }
@@ -81,6 +94,7 @@ NAKED
 OPTIMIZE(O0)
 YOS_KERNEL(restore_context)
 static void restore_context(register DWORD psp) {
+#ifdef __ARCH_V6M__
 	asm volatile(
 			"mov   r1,r0        \t\n"
 			"add   r0,#0x10		\t\n"
@@ -95,6 +109,15 @@ static void restore_context(register DWORD psp) {
 			"msr   psp,r0		\t\n"
 			"bx    lr           \t\n"
 	);
+#elif defined(__ARCH_V7M__)
+	asm volatile(
+			"ldm   r0!,{r4-r11}   \n"
+			"msr   psp,r0         \n"
+			"bx    lr             \n"
+	);
+#else
+#error "unknown architecture"
+#endif
 }
 
 // if need reschedule set pending irq bit

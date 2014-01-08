@@ -1,4 +1,6 @@
 *.old
 *.bak
+/src/lpc800.ld
+/src/mb9bf506.ld
 /Debug
 /Objects

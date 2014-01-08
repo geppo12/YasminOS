@@ -39,6 +39,7 @@
 // user entry point
 extern int main(void);
 void DefaultIrq(void);
+void DefaultException(void);
 static void reset(void);
 extern DWORD _estack;
 
@@ -50,11 +51,19 @@ void *vectors[] =
 {
 	(void *)&_estack,	// msp stack
 	reset,				// reset routine
-	DefaultIrq,
-	DefaultIrq,
-	DefaultIrq,
+	DefaultIrq,			// NMI is not and exception so doesn't have a vector catch
+	DefaultException,
+#ifdef __ARCH_V6M__
 	0,					// reserved
 	0,
+	0,
+#elif defined(__ARCH_V7M__)
+	DefaultException,
+	DefaultException,
+	DefaultException,
+#else
+#error "unknown architecture"
+#endif
 	0,
 	0,
 	0,
@@ -112,12 +121,21 @@ NAKED
 STARTUP
 void DefaultIrq(void)
 {
-	asm volatile(
-		"mov pc,lr	\n"
-		"nop		\n"
-	);
+	// actually undefined irq stop emulation.
+	// if there in no debugger bkpt istruction result
+	// in an hard fault
+	asm volatile("bkpt");
 }
 
+NAKED
+STARTUP
+void DefaultException(void)
+{
+	asm volatile (
+	  "cpsid I	\n"
+	  "1: b 1b	\n"
+	);
+}
 
 STARTUP
 static void reset(void) {

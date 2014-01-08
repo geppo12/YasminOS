@@ -26,68 +26,17 @@
 
 	 You should have received a copy of the GNU General Public License
 	 along with 'YasminOS'. If not, see <http://www.gnu.org/licenses/>.
-
-	 EXAMPLE EXCEPTION
-	 This is and example file. Modification of this file does not constitute
-	 a derivative work of YasminOS
 */
 
-#define MB9BF500
+#ifndef PLATFORM_H_
+#define PLATFORM_H_
 
-#include <types.h>
-#include <cortex_m0.h>
-#include <yos.h>
-#include <debug.h>
-#include <assert.h>
-#include <platform.h>
+#ifdef __use_platform__
+// include prototypes
+#include "../platform/platformproto.h"
+#define PLATFORM(a) a
+#else
+#define PLATFORM(a) do {} while(0)
+#endif
 
-//static YOS_Task_t *pTask1, *pTask2, *pTask3;
-static YOS_Event_t	sEvent;
-
-void assert_alert(void) {
-	YOS_DbgPuts("assert alert\n");
-}
-
-
-void task1(void) {
-	int i;
-	while(1) {
-		YOS_EventSignal(&sEvent,0);
-		for (i = 0; i <100000; i++);
-	}
-}
-
-void task2(void) {
-	while(1) {
-		asm volatile("nop");
-	}
-}
-
-void task3(void) {
-	while(1) {
-		YOS_EventWait(&sEvent);
-		YOS_DbgPuts("go on");
-	}
-}
-
-
-NAKED
-int main(void) {
-	extern DWORD _stack;
-	extern DWORD _ebss;
-
-	// use specific platform code
-	// to disable watchdog...
-	PLATFORM(CpuDisableWdg());
-
-	// and set clock to maximum speed
-	PLATFORM(CpuSetClock());
-
-	// TODO sistemare memoria
-	YOS_InitOs(&_ebss,&_stack);
-	YOS_AddTask(task1,128);
-	YOS_AddTask(task2,128);
-	YOS_AddTask(task3,256);
-	YOS_EventInit(&sEvent);
-	YOS_Start();
-}
+#endif /* PLATFORM_H_ */

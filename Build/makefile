@@ -36,19 +36,79 @@ TARGET = yasminOs
 # add .. to source and obj directory (are outside build directory)
 OBJDIR := ..\$(OBJDIR)
 SRCDIR := ..\$(SRCDIR)
+
+# with these define we add architecture macro for code
+ifeq ($(CPU),cortex-m0)
+ARCH    := V6M
+endif
+ifeq ($(CPU),cortex-m0plus)
+ARCH    := V6M
+endif
+
+#todo support cortex m4
+ifeq ($(CPU),cortex-m3)
+ARCH    := V7M
+endif
+
+#if we have a specific platform we define some module and some include to support
+#differnt platform
+ifneq ($(CPUFAMILY),)
+ifeq ($(LDFILE),)
+ifneq ($(CPUNAME),)
+LDFILE := platform\ld\$(CPUNAME).ld
+else
+LDFILE := platform\ld\$(CPUFAMILY).ld
+endif #$(CPUNAME)
+
+# add src path. Now src act as custom LDFILE with path so following
+# rule doesn't chenge it
+LDFILE := $(SRCDIR)\$(LDFILE)
+
+# if ld doesn't exist leave default (we ese ($wildcard a,b) function to check file existence)
+# we inclue srcdir in condition
+ifeq ($(wildcard $(LDFILE)),)
+$(info delete-file)
+# delete unexistent file 
+LDFILE := 
+endif #$(wildcard ...)
+endif #$(LDFILE)
+
+SRCS   += platform\platform.c
+SRCS   += platform\$(CPUFAMILY).c
+DEFINE += __use_platform__
+DEFINE += __cpu_$(CPUFAMILY)__ 
+endif
+
+# define process: we convert define list in compiler options
 DEFINE := $(addprefix -D,$(DEFINE))
 DEFINE += $(addprefix -U,$(UNDEFINE))
-DEFINE += -D__arch_$(subst -,_,$(ARCH))__ 
+DEFINE += -D__ARCH_$(ARCH)__
 
 #generate objects with objdir preponed 
 OBJECTS := $(addprefix $(OBJDIR)\,$(SRCS:.c=.o))
 OUTPUT  := $(OBJDIR)\$(TARGET)
 
-# not not configurable options
-CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(ARCH) -ffunction-sections -mthumb -g3
-LDFLAGS := -nostartfiles -mthumb -mcpu=$(ARCH) -lc -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(SRCDIR)\application.ld 
+#if linker script is not defined, define default
+ifeq ($(LDFILE),)
+LDFILE  := default.ld
+endif
+
+#add src path if no path in $LDFILE
+#note we check for '/' or '\' char with $(findstring a,b) function that return
+#     found substring a in string b if exist empty string otherwise
+#     se makefile documentation
+ifeq ($(findstring \,$(LDFILE))$(findstring /,$(LDFILE)),)
+LDFILE  := $(SRCDIR)\$(LDFILE)
+endif
+
+ifeq ($(OPTIMIZE),none)
+OPTIMIZE := -O0
+endif 
+
+CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(CPU) -ffunction-sections -mthumb -g3
+LDFLAGS := -nostartfiles -mthumb -mcpu=$(CPU) -lc -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(LDFILE) 
 # include path
-IPATH  := -I$(SRCDIR)\include
+IPATH  := -I$(SRCDIR) -I$(SRCDIR)\include
 
 .PHONY: all
 all: $(OUTPUT).elf $(OUTPUT).lst size 
@@ -73,7 +133,7 @@ $(OUTPUT).lst: $(OUTPUT).elf
 	$(CC-OBJDUMP) -h -S $< > $@ 
 
 # link comand
-$(OUTPUT).elf: $(OBJECTS) $(SRCDIR)\application.ld
+$(OUTPUT).elf: $(OBJECTS) $(LDFILE)
 	$(CC) $(LDFLAGS) -o $(OUTPUT).elf 
 
 # compile comand	
