@@ -256,11 +256,13 @@ void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 				YOS_Mutex_t *m = (YOS_Mutex_t *)par1;
 				// next task run
 				m->mOwner = taskDequeue(&m->mTaskQueue);
-				// mark task ready
-				m->mOwner->tWait = 0;
-				// add task in ready queue
-				taskEnqueue(&sTaskList,m->mOwner);
-				performReschedule();
+				if (m->mOwner != NULL) {
+					// mark task ready
+					m->mOwner->tWait = 0;
+					// add task in ready queue
+					taskEnqueue(&sTaskList,m->mOwner);
+					performReschedule();
+				}
 			}
 			break;
 
