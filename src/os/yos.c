@@ -46,8 +46,19 @@ static int sTaskNum;
 static YOS_TaskList_t sTaskList;				// taskList
 static YOS_Task_t *sCurrentTask;				// running task
 static YOS_Task_t *sLeavingTask;				// task leaving active status
+#ifdef USE_IDLE_TASK
+static YOS_Task_t *sIdleTask;
+#endif
 static int 		   sLockCount;					// scheduler lock counter;
 static int 		   sDisableIrqCount;
+
+#ifdef USE_IDLE_TASK
+NAKED
+YOS_KERNEL(idleTaskFun)
+static void idleTaskFun(void) {
+	while(1);
+}
+#endif
 
 // optimizer remove this function because C don't call it
 // is called in inline assembler only. So we disable optimizer
@@ -126,6 +137,7 @@ static void performReschedule(void) {
 	CTX_SCB->ICSR |= CTX_SCBICSR_PendSVSet;
 }
 
+#ifndef USE_IDLE_TASK
 YOS_KERNEL(setSleepOnExit)
 static void setSleepOnExit(void) {
 	// set sleep on exit
@@ -141,6 +153,40 @@ static void resetSleepOnExit(void) {
 	CTX_SCB->SCR   &= ~CTX_SCBSCR_SleepOnExit;
 	// enable sys ticks
 	CTX_SYST->CSR  |= 1;
+}
+#endif
+
+YOS_KERNEL(createTask)
+static YOS_Task_t *createTask(YOS_Routine_t code, int stackSize) {
+	register int i;
+	YOS_Task_t *newTask = 0L;
+	DWORD *newTaskStack;
+	BYTE *newTaskMemory;
+
+	if (stackSize < 0)
+		stackSize = TASK_SIZE;
+
+	// stack should be 4 aligned
+	stackSize &= ~3L;
+
+	newTaskStack = (DWORD*)(sTaskMemory);
+	newTaskMemory = sTaskMemory - stackSize;
+	if (newTaskMemory > sTaskMemoryLimit) {
+		sTaskMemory = newTaskMemory;
+		newTask = (YOS_Task_t *) (sTaskMemory);
+		// clear task mem
+		for (i = 0; i < stackSize; i++)
+			((BYTE*)newTask)[i] = 0;
+		// add return stak frame (cortex unstaking)
+		newTaskStack -= 16;
+		newTaskStack[14]= (DWORD)code;
+		// force T bit in xPSR (without it we have and hard fault)
+		newTaskStack[15] = 0x1000000;
+		newTask->tPsp = ((DWORD)newTaskStack >> 2);
+		newTask->tSignal = 0;
+		newTask->tWait   = 0;
+	}
+	return newTask;
 }
 
 YOS_KERNEL(taskEnqueue)
@@ -169,10 +215,21 @@ static YOS_Task_t *taskDequeue(YOS_TaskList_t *list) {
 UNUSED
 YOS_KERNEL(getNextTask)
 static void getNextTask(void) {
-	if (sCurrentTask->tWait == 0)
+	bool addTask = true;
+#if USE_IDLE_TASK
+	if (sCurrentTask == sIdleTask)
+		addTask = false;
+#endif
+
+	if (sCurrentTask->tWait == 0 && addTask)
 		taskEnqueue(&sTaskList,sCurrentTask);
+
 	sLeavingTask = sCurrentTask;
 	sCurrentTask = taskDequeue(&sTaskList);
+#ifdef USE_IDLE_TASK
+	if (sCurrentTask == NULL)
+		sCurrentTask = sIdleTask;
+#endif
 }
 
 // no startup, can grow
@@ -346,7 +403,9 @@ void YOS_SchedulerIrq(void) {
 		// re-enable high level irq
 		asm volatile ("CPSIE I");
 		if (sCurrentTask != 0) {
+#ifndef USE_IDLE_TASK
 			resetSleepOnExit();
+#endif
 			if (sCurrentTask != sLeavingTask) {
 				// new task running. do a context switch
 				// restore used regs
@@ -369,8 +428,10 @@ void YOS_SchedulerIrq(void) {
 				return;
 			}
 		} else {
+#ifndef USE_IDLE_TASK
 			// no task running go sleep when exit
 			setSleepOnExit();
+#endif
 		}
 	}
 	asm volatile("pop {r4,pc}");
@@ -378,37 +439,14 @@ void YOS_SchedulerIrq(void) {
 
 YOS_KERNEL(YOS_AddTask)
 YOS_Task_t *YOS_AddTask(YOS_Routine_t code, int stackSize) {
-	register int i;
-	YOS_Task_t *newTask = 0L;
-	DWORD *newTaskStack;
-	BYTE *newTaskMemory;
+	YOS_Task_t *task;
 
-	if (stackSize < 0)
-		stackSize = TASK_SIZE;
-
-	// stack should be 4 aligned
-	stackSize &= ~3L;
-
-	newTaskStack = (DWORD*)(sTaskMemory);
-	newTaskMemory = sTaskMemory - stackSize;
-	if (newTaskMemory > sTaskMemoryLimit) {
-		sTaskMemory = newTaskMemory;
-		newTask = (YOS_Task_t *) (sTaskMemory);
-		// clear task mem
-		for (i = 0; i < stackSize; i++)
-			((BYTE*)newTask)[i] = 0;
-		// add return stak frame (cortex unstaking)
-		newTaskStack -= 16;
-		newTaskStack[14]= (DWORD)code;
-		// force T bit in xPSR (without it we have and hard fault)
-		newTaskStack[15] = 0x1000000;
-		newTask->tPsp = ((DWORD)newTaskStack >> 2);
-		newTask->tSignal = 0;
-		newTask->tWait   = 0;
-		taskEnqueue(&sTaskList,newTask);
+	task = createTask(code,stackSize);
+	if (task != NULL) {
+		taskEnqueue(&sTaskList,task);
 		sTaskNum++;
 	}
-	return newTask;
+	return task;
 }
 
 YOS_KERNEL(YOS_InitOs)
@@ -460,10 +498,17 @@ void YOS_Unlock(void) {
 		sLockCount--;
 }
 
+#ifdef USE_IDLE_TASK
+void YOS_Start(void) {
+	sIdleTask = createTask(idleTaskFun,128);
+	ASSERT(sIdleTask != NULL);
+
+#else
 NAKED
 OPTIMIZE(O0)
 YOS_KERNEL(YOS_Start)
 void YOS_Start(void) {
+#endif
 	// Reset stack. Set processor stack
 	asm volatile (
 		"ldr r0,=_estack	\n"

@@ -69,6 +69,7 @@ LDFILE   :=
 # option define 
 DEFINE   := USE_DISABLE_ISP
 DEFINE   += USE_ASSERT
+DEFINE	 += USE_IDLE_TASK
 #DEFINE   += USE_PRINTF
 
 SRCDIR   := Src
