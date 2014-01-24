@@ -32,16 +32,33 @@
 #	 a derivative work of YasminOS
 #
 
-# mandatory
-CC       := arm-none-eabi-gcc
-# mandatory
+# c compiler mandatory
+CC         := arm-none-eabi-gcc
+# dump utility mandatory
 CC-OBJDUMP := arm-none-eabi-objdump
 
-#if your compiler haven't size command left comment following line 
+# size utility: if your compiler haven't size command, comment following line 
 CC-SIZE  := arm-none-eabi-size
 
+# optimization
+# supported value:
+#
+# none
+# 1
+# 2
+# 3
+# size
 OPTIMIZE := none
 
+#########################
+# TARGET DEFINE
+#########################
+# supported core 
+#
+# cortex-m0
+# cortex-m0plus	(for now alis for cortex-m0)
+# cortex-m3
+ 
 CPU      := cortex-m3
 
 #########################

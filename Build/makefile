@@ -37,6 +37,11 @@ TARGET = yasminOs
 OBJDIR := ..\$(OBJDIR)
 SRCDIR := ..\$(SRCDIR)
 
+# for now cortex-m0plus is just and alias gcc compiler 4.7.2 doesn't support it 
+ifeq ($(CPU),cortex-m0plus)
+CPU     := cortex-m0
+endif 
+
 # with these define we add architecture macro for code
 ifeq ($(CPU),cortex-m0)
 ARCH    := V6M
@@ -101,9 +106,16 @@ ifeq ($(findstring \,$(LDFILE))$(findstring /,$(LDFILE)),)
 LDFILE  := $(SRCDIR)\$(LDFILE)
 endif
 
+# optimize string elaboration
 ifeq ($(OPTIMIZE),none)
-OPTIMIZE := -O0
+OPTIMIZE := 0
+endif
+ifeq ($(OPTIMIZE),size)
+OPTIMIZE := s
 endif 
+
+OPTIMIZE := $(addprefix -O,$(OPTIMIZE))
+ 
 
 CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(CPU) -ffunction-sections -mthumb -g3
 LDFLAGS := -nostartfiles -mthumb -mcpu=$(CPU) -lc -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(LDFILE) 
