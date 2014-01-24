@@ -569,3 +569,8 @@ YOS_KERNEL(YOS_EventSignal)
 void YOS_EventSignal(YOS_Event_t *event, int flag) {
 	SYS_CALL2(SIGNAL_EVENT,event,flag);
 }
+
+YOS_KERNEL(YOS_Yield)
+void YOS_Yield(void) {
+	SYS_CALL0(RESCHEDULE);
+}

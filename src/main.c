@@ -41,35 +41,71 @@
 #include <assert.h>
 #include <platform.h>
 
-//static YOS_Task_t *pTask1, *pTask2, *pTask3;
-static YOS_Event_t	sEvent;
+#define BUFFER_SIZE 128
 
-void assert_alert(void) {
-	YOS_DbgPuts("assert alert\n");
+typedef struct {
+	BYTE data[BUFFER_SIZE];
+	int wrIndex;
+	int rdIndex;
+	int count;
+} CBuffer;
+
+static CBuffer sPutBuffer;
+static YOS_Mutex_t sPutsMutex;
+static YOS_Event_t sPutsEvent;
+static YOS_Event_t sPutsWriteEvent;
+
+static void g_puts(char *str) {
+	YOS_MutexAcquire(&sPutsMutex);
+	while(sPutBuffer.count < BUFFER_SIZE && *str != 0) {
+		sPutBuffer.data[sPutBuffer.wrIndex++] = *str++;
+		if (sPutBuffer.wrIndex >= BUFFER_SIZE)
+			sPutBuffer.wrIndex = 0;
+		sPutBuffer.count++;
+	}
+	YOS_MutexRelease(&sPutsMutex);
+	YOS_EventSignal(&sPutsEvent,0);
 }
 
+static bool g_puts_complete(void) {
+	return sPutBuffer.count == 0;
+}
+
+void printTask(void) {
+	int count;
+	BYTE c;
+	while(1) {
+		YOS_EventWait(&sPutsEvent);
+		do {
+			YOS_MutexAcquire(&sPutsMutex);
+			c = sPutBuffer.data[sPutBuffer.rdIndex++];
+			if (sPutBuffer.rdIndex >= BUFFER_SIZE)
+				sPutBuffer.rdIndex = 0;
+			sPutBuffer.count--;
+			// reset event
+			// todo aggiungere reset event and reset and wait
+			if (g_puts_complete())
+				sPutsEvent.eFlagSet = 0;
+			YOS_MutexRelease(&sPutsMutex);
+			YOS_DbgPutc(c);
+			YOS_EventSignal(&sPutsWriteEvent,0);
+		} while(!g_puts_complete());
+	}
+}
 
 void task1(void) {
-	int i;
 	while(1) {
-		YOS_EventSignal(&sEvent,0);
-		for (i = 0; i <100000; i++);
+		g_puts("bravo\r\n");
+		YOS_EventWait(&sPutsWriteEvent);
 	}
 }
 
 void task2(void) {
 	while(1) {
-		asm volatile("nop");
+		g_puts("cattivo\r\n");
+		YOS_EventWait(&sPutsWriteEvent);
 	}
 }
-
-void task3(void) {
-	while(1) {
-		YOS_EventWait(&sEvent);
-		YOS_DbgPuts("go on");
-	}
-}
-
 
 NAKED
 int main(void) {
@@ -87,7 +123,9 @@ int main(void) {
 	YOS_InitOs(&_ebss,&_stack);
 	YOS_AddTask(task1,128);
 	YOS_AddTask(task2,128);
-	YOS_AddTask(task3,256);
-	YOS_EventInit(&sEvent);
+	YOS_AddTask(printTask,256);
+	YOS_EventInit(&sPutsEvent);
+	YOS_EventInit(&sPutsWriteEvent);
+	YOS_MutexInit(&sPutsMutex);
 	YOS_Start();
 }

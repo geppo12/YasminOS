@@ -80,5 +80,6 @@ void YOS_EventInit(YOS_Event_t *);
 bool YOS_EventPending(YOS_Event_t *event);
 DWORD YOS_EventWait(YOS_Event_t *);
 void YOS_EventSignal(YOS_Event_t *, int flag);
+void YOS_Yield(void);
 
 #endif /* YOS_H_ */

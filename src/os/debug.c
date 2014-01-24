@@ -32,7 +32,15 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
+//#define T32_SINGLE
+
+#ifdef _T32_SINGLE
 static volatile BYTE sInData, sOutData;
+#else
+#define PRINT_BUFFER_SIZE	16
+static volatile BYTE sInBuffer[PRINT_BUFFER_SIZE+4], sOutBuffer[PRINT_BUFFER_SIZE+4];
+static int sPrintBufferCount;
+#endif
 
 #ifdef USE_PRINTF
 static void print_i(DWORD data, int radix, int len) {
@@ -77,8 +85,16 @@ void YOS_DbgPutc(char c) ALIAS(YOS_T32Putc);
 void YOS_T32Putc(char c) {
 	static BYTE termEnabled = 0;
 	if (termEnabled != 0) {
-		while(sOutData != 0);
-		sOutData = (BYTE)c;
+		// if we are waiting for the debugger, we change task
+		// this data is controlled from debugger so we cannot
+		// put this task in wait
+		while (*((DWORD *)sOutBuffer) != 0)
+			YOS_Yield();
+		sOutBuffer[sPrintBufferCount+4] = c;
+		if (++sPrintBufferCount == PRINT_BUFFER_SIZE) {
+			*((DWORD *)sOutBuffer) = sPrintBufferCount;
+			sPrintBufferCount = 0;
+		}
 	}
 }
 
