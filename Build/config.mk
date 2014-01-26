@@ -38,7 +38,7 @@ CC         := arm-none-eabi-gcc
 CC-OBJDUMP := arm-none-eabi-objdump
 
 # size utility: if your compiler haven't size command, comment following line 
-CC-SIZE  := arm-none-eabi-size
+CC-SIZE    := arm-none-eabi-size
 
 # optimization
 # supported value:
@@ -48,7 +48,7 @@ CC-SIZE  := arm-none-eabi-size
 # 2
 # 3
 # size
-OPTIMIZE := none
+OPTIMIZE   := none
 
 #########################
 # TARGET DEFINE

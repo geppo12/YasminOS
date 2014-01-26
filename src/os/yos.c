@@ -156,26 +156,34 @@ static void resetSleepOnExit(void) {
 }
 #endif
 
+
+// note size is *ONLY* stack size
 YOS_KERNEL(createTask)
-static YOS_Task_t *createTask(YOS_Routine_t code, int stackSize) {
+static YOS_Task_t *createTask(YOS_Routine_t code, int size) {
 	register int i;
 	YOS_Task_t *newTask = 0L;
 	DWORD *newTaskStack;
 	BYTE *newTaskMemory;
 
-	if (stackSize < 0)
-		stackSize = TASK_SIZE;
+	if (size < 0)
+		size = TASK_SIZE;
+
+	// add task control block
+	size += sizeof(YOS_Task_t);
 
 	// stack should be 4 aligned
-	stackSize &= ~3L;
+	if ((size & 3) != 0) {
+		size += 4;
+		size &= ~3;
+	}
 
 	newTaskStack = (DWORD*)(sTaskMemory);
-	newTaskMemory = sTaskMemory - stackSize;
+	newTaskMemory = sTaskMemory - size;
 	if (newTaskMemory > sTaskMemoryLimit) {
 		sTaskMemory = newTaskMemory;
 		newTask = (YOS_Task_t *) (sTaskMemory);
 		// clear task mem
-		for (i = 0; i < stackSize; i++)
+		for (i = 0; i < size; i++)
 			((BYTE*)newTask)[i] = 0;
 		// add return stak frame (cortex unstaking)
 		newTaskStack -= 16;
