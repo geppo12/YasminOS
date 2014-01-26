@@ -323,8 +323,15 @@ void svcDispatch(DWORD par1, DWORD par2, int svcid) {
 			}
 			break;
 
-		case DO_CHECK_MUTEX:
-			*((bool *)par2) = (((YOS_Mutex_t *)par1)->mOwner != 0);
+		case DO_TRY_MUTEX:
+			{
+				YOS_Mutex_t *mutex = ((YOS_Mutex_t *)par1);
+				bool b;
+				b = (mutex->mOwner != NULL) ? false : true;
+				if (b == true)
+					mutex->mOwner = sCurrentTask;
+				*((bool *)par2) = b;
+			}
 			break;
 			
 		default:
@@ -530,7 +537,7 @@ void YOS_MutexInit(YOS_Mutex_t *mutex) {
 YOS_KERNEL(YOS_MutexTryAcquire)
 bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex) {
 	bool b;
-	SYS_CALL2(CHECK_MUTEX,mutex,&b);
+	SYS_CALL2(TRY_MUTEX,mutex,&b);
 	return b;
 }
 

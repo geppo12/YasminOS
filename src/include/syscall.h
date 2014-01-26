@@ -47,7 +47,7 @@ enum {
 	DO_RESUME_EVENT,	// called before wait exit
 	DO_QUEUE_MUTEX,
 	DO_UNQUEUE_MUTEX,
-	DO_CHECK_MUTEX
+	DO_TRY_MUTEX
 };
 
 // SYSCALL are like function AAPCS use R0-R3 as scratch register so sw need to inform compiler
