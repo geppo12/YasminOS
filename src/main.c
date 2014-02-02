@@ -72,7 +72,6 @@ static bool g_puts_complete(void) {
 }
 
 void printTask(void) {
-	int count;
 	BYTE c;
 	while(1) {
 		YOS_EventWait(&sPutsEvent);

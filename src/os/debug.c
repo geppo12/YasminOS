@@ -31,6 +31,7 @@
 #include <debug.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <yos.h>
 
 //#define T32_SINGLE
 

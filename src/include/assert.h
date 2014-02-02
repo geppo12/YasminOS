@@ -40,7 +40,7 @@
 #define ASSERT_STR2(a) #a
 #define ASSERT_STR(a) ASSERT_STR2(a)
 // no comma: after expansion are all constant sting so are merged in a single string
-#define ASSERT(x)   do { if (!x) YOS_AssertFail("ASSERT FAIL: " ASSERT_STR(x) " " __FILE__ " " ASSERT_STR(__LINE__) "\n"); } while(0)
+#define ASSERT(x)   do { if (!(x)) YOS_AssertFail("ASSERT FAIL: " ASSERT_STR(x) " " __FILE__ " " ASSERT_STR(__LINE__) "\n"); } while(0)
 #else
 #define ASSERT(x)	do {} while(0)
 #endif
