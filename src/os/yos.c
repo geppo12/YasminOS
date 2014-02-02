@@ -223,14 +223,14 @@ static YOS_Task_t *taskDequeue(YOS_TaskList_t *list) {
 UNUSED
 YOS_KERNEL(getNextTask)
 static void getNextTask(void) {
-	bool addTask = true;
-#if USE_IDLE_TASK
-	if (sCurrentTask == sIdleTask)
-		addTask = false;
+	if (sCurrentTask->tWait == 0) {
+#ifdef USE_IDLE
+		if (sCurrentTask != sIdleTask)
 #endif
-
-	if (sCurrentTask->tWait == 0 && addTask)
-		taskEnqueue(&sTaskList,sCurrentTask);
+		{
+			taskEnqueue(&sTaskList,sCurrentTask);
+		}
+	}
 
 	sLeavingTask = sCurrentTask;
 	sCurrentTask = taskDequeue(&sTaskList);
