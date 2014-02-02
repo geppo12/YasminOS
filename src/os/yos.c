@@ -70,7 +70,7 @@ NAKED
 UNUSED
 OPTIMIZE(O0)
 YOS_KERNEL(save_context)
-static DWORD save_context(void) {
+static void *save_context(void) {
 // aerchitecture are mutually exclusive
 #ifdef __ARCH_V6M__
 	asm volatile(
@@ -104,7 +104,7 @@ static DWORD save_context(void) {
 NAKED
 OPTIMIZE(O0)
 YOS_KERNEL(restore_context)
-static void restore_context(register DWORD psp) {
+static void restore_context(register void *psp) {
 #ifdef __ARCH_V6M__
 	asm volatile(
 			"mov   r1,r0        \t\n"
@@ -168,14 +168,14 @@ static YOS_Task_t *createTask(YOS_Routine_t code, int size) {
 	if (size < 0)
 		size = TASK_SIZE;
 
-	// add task control block
-	size += sizeof(YOS_Task_t);
-
 	// stack should be 4 aligned
 	if ((size & 3) != 0) {
 		size += 4;
 		size &= ~3;
 	}
+
+	// add task control block
+	size += sizeof(YOS_Task_t);
 
 	newTaskStack = (DWORD*)(sTaskMemory);
 	newTaskMemory = sTaskMemory - size;
@@ -190,7 +190,7 @@ static YOS_Task_t *createTask(YOS_Routine_t code, int size) {
 		newTaskStack[14]= (DWORD)code;
 		// force T bit in xPSR (without it we have and hard fault)
 		newTaskStack[15] = 0x1000000;
-		newTask->tPsp = ((DWORD)newTaskStack >> 2);
+		newTask->tPsp = newTaskStack;
 		newTask->tSignal = 0;
 		newTask->tWait   = 0;
 	}
@@ -361,7 +361,7 @@ void startOsIrq(void) {
 	CTX_SYST->CSR |= 1;
 	// restore context first task
 	sCurrentTask = taskDequeue(&sTaskList);
-	restore_context(sCurrentTask->tPsp << 2);
+	restore_context(sCurrentTask->tPsp);
 	// start first task
 	asm volatile ("pop {pc}");
 }
@@ -408,7 +408,7 @@ NAKED
 OPTIMIZE(O1)
 YOS_KERNEL(YOS_SchedulerIrq)
 void YOS_SchedulerIrq(void) {
-	static DWORD psp;
+	static void *psp;
 	asm volatile ("push {r4,lr}");
 	if (sLockCount ==0) {
 		// disable high level irq
@@ -434,9 +434,9 @@ void YOS_SchedulerIrq(void) {
 				// ** until here we MUST NOT touch r4-r11 **
 				// this could be null after resume from sleep
 				if (sLeavingTask != NULL)
-					sLeavingTask->tPsp = psp >> 2;
+					sLeavingTask->tPsp = psp;
 				// must be the last operation before return
-				restore_context(sCurrentTask->tPsp << 2);
+				restore_context(sCurrentTask->tPsp);
 				// trash away r4 on stack and exit loading pc
 				// ** return
 				asm volatile ("pop {pc}");

@@ -45,9 +45,9 @@ typedef struct YOS_Task_s YOS_Task_t;
 
 struct YOS_Task_s {
 	YOS_Task_t *tNext;	// must be first member of structure
-	DWORD	tPsp:30;
-	DWORD	tWait:1;
-	DWORD	tSignal:1;
+	void   *tPsp;
+	WORD	tWait:1;
+	WORD	tSignal:1;
 };
 
 typedef struct {
