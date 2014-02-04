@@ -37,6 +37,9 @@ TARGET = yasminOs
 OBJDIR := ..\$(OBJDIR)
 SRCDIR := ..\$(SRCDIR)
 
+#default custom LD dir used if custom ld file start with prefix "ld::"
+DEFAULT_LD := $(SRCDIR)\platform\ld
+
 # for now cortex-m0plus is just and alias gcc compiler 4.7.2 doesn't support it 
 ifeq ($(CPU),cortex-m0plus)
 CPU     := cortex-m0
@@ -69,10 +72,9 @@ endif #$(CPUNAME)
 # rule doesn't chenge it
 LDFILE := $(SRCDIR)\$(LDFILE)
 
-# if ld doesn't exist leave default (we ese ($wildcard a,b) function to check file existence)
-# we inclue srcdir in condition
+# if ld doesn't exist leave default (we use ($wildcard a,b) function to check file existence)
+# we include srcdir in condition
 ifeq ($(wildcard $(LDFILE)),)
-$(info delete-file)
 # delete unexistent file 
 LDFILE := 
 endif #$(wildcard ...)
@@ -82,7 +84,7 @@ SRCS   += platform\platform.c
 SRCS   += platform\$(CPUFAMILY).c
 DEFINE += __use_platform__
 DEFINE += __cpu_$(CPUFAMILY)__ 
-endif
+endif #$(CPUFAMILY)
 
 # define process: we convert define list in compiler options
 DEFINE := $(addprefix -D,$(DEFINE))
@@ -97,6 +99,11 @@ OUTPUT  := $(OBJDIR)\$(TARGET)
 ifeq ($(LDFILE),)
 LDFILE  := default.ld
 endif
+
+#check for "ld::" default directory
+ifeq ($(firstword $(subst ::, ,$(LDFILE))),ld)
+LDFILE  := $(subst ld::,$(DEFAULT_LD)\,$(LDFILE))
+endif 
 
 #add src path if no path in $LDFILE
 #note we check for '/' or '\' char with $(findstring a,b) function that return
@@ -121,6 +128,7 @@ CFLAGS := $(OPTIMIZE) $(DEFINE) -Wall -std=gnu99 -mcpu=$(CPU) -ffunction-section
 LDFLAGS := -nostartfiles -mthumb -mcpu=$(CPU) -lc -Wl,--gc-sections -Wl,-Map,$(OUTPUT).map $(OBJECTS) -T$(LDFILE) 
 # include path
 IPATH  := -I$(SRCDIR) -I$(SRCDIR)\include
+
 
 .PHONY: all
 all: $(OUTPUT).elf $(OUTPUT).lst size 

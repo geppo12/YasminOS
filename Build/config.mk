@@ -77,14 +77,15 @@ CPU      := cortex-m3
 # SUPPORTED NAME
 # none, leave blank
 
-CPUFAMILY  := mb9bf500
+CPUFAMILY  :=  
 CPUNAME    :=
 
-# custom linker script. Leave empty for default 
-LDFILE   := 
+# custom linker script. Leave empty for default
+# use "ld::" prefix for use ld default directory 
+LDFILE   := ld::lpc40xx.ld
 
 # option define 
-DEFINE   := USE_DISABLE_ISP
+#DEFINE   := USE_DISABLE_ISP
 DEFINE   += USE_ASSERT
 DEFINE	 += USE_IDLE_TASK
 #DEFINE   += USE_PRINTF
