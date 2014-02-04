@@ -39,7 +39,11 @@
 static volatile BYTE sInData, sOutData;
 #else
 #define PRINT_BUFFER_SIZE	16
-static volatile BYTE sInBuffer[PRINT_BUFFER_SIZE+4], sOutBuffer[PRINT_BUFFER_SIZE+4];
+typedef	struct {
+	DWORD count; // must be first
+	BYTE  bytes[PRINT_BUFFER_SIZE];
+} T32_Buffer;
+static volatile T32_Buffer sInBuffer, sOutBuffer;
 static int sPrintBufferCount;
 #endif
 
@@ -84,16 +88,16 @@ void YOS_DbgPutc(char c) ALIAS(YOS_T32Putc);
 
 // and we implement this alias
 void YOS_T32Putc(char c) {
-	static BYTE termEnabled = 0;
+	volatile static BYTE termEnabled = 0;
 	if (termEnabled != 0) {
 		// if we are waiting for the debugger, we change task
 		// this data is controlled from debugger so we cannot
 		// put this task in wait
-		while (*((DWORD *)sOutBuffer) != 0)
+		while (sOutBuffer.count != 0)
 			YOS_Yield();
-		sOutBuffer[sPrintBufferCount+4] = c;
+		sOutBuffer.bytes[sPrintBufferCount] = c;
 		if (++sPrintBufferCount == PRINT_BUFFER_SIZE) {
-			*((DWORD *)sOutBuffer) = sPrintBufferCount;
+			sOutBuffer.count = sPrintBufferCount;
 			sPrintBufferCount = 0;
 		}
 	}

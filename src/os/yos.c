@@ -544,7 +544,7 @@ void YOS_MutexInit(YOS_Mutex_t *mutex) {
 
 YOS_KERNEL(YOS_MutexTryAcquire)
 bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex) {
-	bool b;
+	bool b = false;
 	SYS_CALL2(TRY_MUTEX,mutex,&b);
 	return b;
 }
@@ -572,7 +572,7 @@ bool YOS_EventPending(YOS_Event_t *event) {
 
 YOS_KERNEL(YOS_EventWait)
 DWORD YOS_EventWait(YOS_Event_t *event) {
-	DWORD flags;
+	DWORD flags = 0;
 	// this put task in wait state
 	SYS_CALL1(WAIT_EVENT,event);
 	// when we get up we finalize event waiting
