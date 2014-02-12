@@ -84,7 +84,7 @@ void printTask(void) {
 			// reset event
 			// todo aggiungere reset event and reset and wait
 			if (g_puts_complete())
-				sPutsEvent.eFlagSet = 0;
+				YOS_EventReset(&sPutsEvent);
 			YOS_MutexRelease(&sPutsMutex);
 			YOS_DbgPutc(c);
 			YOS_EventSignal(&sPutsWriteEvent,0);

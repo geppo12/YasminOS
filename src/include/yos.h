@@ -71,15 +71,16 @@ void YOS_EnableIrq(void);
 void YOS_Lock(void);
 void YOS_Unlock(void);
 void YOS_Start(void);
-YOS_Task_t *YOS_AddTask(YOS_Routine_t,int);
+YOS_Task_t *YOS_AddTask(YOS_Routine_t,int size);
 void YOS_MutexInit(YOS_Mutex_t *mutex);
 bool YOS_MutexTryAcquire(YOS_Mutex_t *mutex);
 void YOS_MutexAcquire(YOS_Mutex_t *mutex);
 void YOS_MutexRelease(YOS_Mutex_t *mutex);
-void YOS_EventInit(YOS_Event_t *);
+void YOS_EventInit(YOS_Event_t *event);
 bool YOS_EventPending(YOS_Event_t *event);
-DWORD YOS_EventWait(YOS_Event_t *);
-void YOS_EventSignal(YOS_Event_t *, int flag);
+DWORD YOS_EventWait(YOS_Event_t *event);
+void YOS_EventSignal(YOS_Event_t *event, int flag);
+void YOS_EventReset(YOS_Event_t *event);
 void YOS_Yield(void);
 
 #endif /* YOS_H_ */

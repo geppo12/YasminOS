@@ -585,6 +585,13 @@ void YOS_EventSignal(YOS_Event_t *event, int flag) {
 	SYS_CALL2(SIGNAL_EVENT,event,flag);
 }
 
+YOS_KERNEL(YOS_EventReset)
+void YOS_EventReset(YOS_Event_t *event) {
+	YOS_DisableIrq();
+	event->eFlagSet = 0;
+	YOS_EnableIrq();
+}
+
 YOS_KERNEL(YOS_Yield)
 void YOS_Yield(void) {
 	SYS_CALL0(RESCHEDULE);
