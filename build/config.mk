@@ -90,6 +90,6 @@ DEFINE   += USE_ASSERT
 DEFINE	 += USE_IDLE_TASK
 #DEFINE   += USE_PRINTF
 
-SRCDIR   := Src
-OBJDIR   := Objects
+SRCDIR   := src
+OBJDIR   := objects
 

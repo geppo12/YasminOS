@@ -79,5 +79,5 @@ DEFINE	 += USE_IDLE_TASK
 #DEFINE   += USE_PRINTF
 
 SRCDIR   := src
-OBJDIR   := sbjects
+OBJDIR   := objects
 
